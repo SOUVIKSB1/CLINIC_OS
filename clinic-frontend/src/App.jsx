@@ -995,8 +995,8 @@ function AuthLanding({ onSession, toast, theme, toggleTheme, themeRotating }) {
             <div>
               <div className="footer-col-title">Contact &amp; Support</div>
               <div className="footer-contact-info">
-                <span>📍 Hospital Lane, Sector-4</span>
-                <span>📞 +91 98765 43210</span>
+                <span>📍 Hospital Lane, Sector-5</span>
+                <span>📞 +91 8250204087</span>
                 <span>✉️ support@clinicos.org</span>
               </div>
             </div>
@@ -1707,8 +1707,8 @@ function PatientTests({ toast, user }) {
               <h4>Pathologist Sign-off</h4>
               <div className="clinic-report-sign-off">
                 <div className="signature-block">
-                  <div className="signature-handwritten">Souvik Sinhababu</div>
-                  <strong>Souvik Sinhababu</strong>
+                  <div className="signature-handwritten">Dr. Souvik Sinhababu</div>
+                  <strong>Dr. Souvik Sinhababu</strong>
                   <div>Chief Pathologist, ClinicOS</div>
                 </div>
               </div>
@@ -1921,7 +1921,7 @@ function MyBills({ toast }) {
                   <>
                     <Input
                       label="Cardholder Name"
-                      placeholder="John Doe"
+                      placeholder="Souvik Sinhababu"
                       value={formDetails.name}
                       onChange={e => setFormDetails({ ...formDetails, name: e.target.value })}
                       required
@@ -3484,10 +3484,10 @@ function PillTracker({ toast }) {
 }
 
 const PATIENT_NAV = [
-  ["home", "Home"], ["profile", "My Profile"], ["book", "Book Appointment"], ["appointments", "My Appointments"], ["tests", "Diagnostic Tests"], ["bills", "My Bills"], ["vitals", "Health Tracker"], ["meds", "My Meds"],
+  ["home", "Dashboard"], ["profile", "My Profile"], ["book", "Book Appointment"], ["appointments", "My Appointments"], ["tests", "Diagnostic Tests"], ["bills", "My Bills"], ["vitals", "Health Tracker"], ["meds", "My Meds"],
 ];
 const ADMIN_NAV = [
-  ["dashboard", "Dashboard"], ["appointments", "Appointments"], ["test-requests", "Tests"], ["billing", "Billing"], ["patients", "Patients"], ["doctors", "Doctors"], ["departments", "Departments"],
+  ["dashboard", "Dashboard"], ["appointments", "Appointments Manager"], ["test-requests", "Tests Manager"], ["billing", "Billing"], ["patients", "Patients"], ["doctors", "Doctors"], ["departments", "Departments"],
 ];
 
 function PatientNotifications({ toast, setPage, dismissNotification, clearAllNotifications }) {
@@ -3725,7 +3725,7 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
             </button>
             {!isAdmin && (
               <div className="notification-bell-container">
-                <button className="bell-btn" onClick={() => setShowNotifications(!showNotifications)}>
+                <button className="bell-btn" onClick={() => setShowNotifications(showNotifications)}>
                   🔔
                   {notificationCount > 0 && <span className="nav-badge">{notificationCount}</span>}
                 </button>
@@ -3833,7 +3833,7 @@ export default function App() {
   const logout = () => {
     localStorage.removeItem(SESSION_KEY);
     setSession(null);
-    toast("You have signed out.");
+    toast("See you soon! Good Health 😇");
   };
   return (
     <>
