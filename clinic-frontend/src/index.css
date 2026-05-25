@@ -2991,11 +2991,15 @@ body.light-theme .header-signout-btn:hover {
     display: none;
   }
 
+  .landing-nav-btn {
+    display: none !important;
+  }
+
   .landing-nav.open {
     display: flex;
     flex-direction: column;
     position: absolute;
-    top: 80px;
+    top: 70px;
     left: 20px;
     right: 20px;
     background: rgba(15, 15, 17, 0.95);
@@ -3979,4 +3983,59 @@ body.light-theme .header-signout-btn:hover {
 .demo-prefill-btn:hover {
   color: var(--secondary);
   background: rgba(255, 122, 24, 0.08);
+}
+
+/* ===== NEW RESPONSIVENESS AND MOBILE POLISH RULES ===== */
+.hero-buttons {
+  display: flex;
+  gap: 16px;
+}
+
+.dept-filter-row::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .auth-card {
+    padding: 20px !important;
+  }
+  .symptom-assistant-card {
+    padding: 20px !important;
+  }
+  .testimonial-card {
+    padding: 24px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-buttons {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .hero-buttons button,
+  .hero-buttons a {
+    width: 100% !important;
+  }
+  .auth-tabs button {
+    font-size: 11px !important;
+    padding: 10px 4px !important;
+  }
+  .symptom-result-doc-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .symptom-result-doc-row button {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 400px) {
+  .hero h1 {
+    font-size: 28px !important;
+    line-height: 1.15 !important;
+  }
+  .animated-keyword {
+    min-width: 140px !important;
+  }
 }

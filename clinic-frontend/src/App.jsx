@@ -398,7 +398,7 @@ function AuthLanding({ onSession, toast, theme, toggleTheme, themeRotating }) {
               </h1>
               <p>Patients can request appointments and diagnostics online. Hospital authority can review requests, coordinate care, and issue bills securely.</p>
               
-              <div style={{ display: "flex", gap: "16px", marginTop: "24px" }}>
+              <div className="hero-buttons" style={{ marginTop: "24px" }}>
                 <Btn onClick={() => {
                   const el = document.getElementById("features");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
