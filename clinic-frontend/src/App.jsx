@@ -3725,10 +3725,23 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
             </button>
             {!isAdmin && (
               <div className="notification-bell-container">
-                <button className="bell-btn" onClick={() => setShowNotifications(prev => !prev)}>
-                  🔔
-                  {notificationCount > 0 && <span className="nav-badge">{notificationCount}</span>}
-                </button>
+                <button
+                    type="button"
+                    className="bell-btn"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowNotifications(prev => !prev);
+                    }}
+              >
+              🔔
+
+              {notificationCount > 0 && (
+              <span className="nav-badge">
+              {notificationCount}
+               </span>
+              )}
+              </button>
                 {showNotifications ? (
                   <div className="notification-dropdown-panel">
                     <div className="dropdown-header">
