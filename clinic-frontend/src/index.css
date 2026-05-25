@@ -1665,110 +1665,74 @@ tr:hover td {
   gap: 16px;
 }
 
-.notification-bell-container {
-  position: relative;
-  z-index: 9999;
-}
-
-.notification-dropdown-panel {
-  position: absolute;
-  right: 0;
-  top: 55px;
-  z-index: 99999;
-}
-
-.bell-btn {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 17px;
-  cursor: pointer;
-  color: #fff;
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+.notification-bell-container{
   position: relative;
 }
 
-.bell-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 122, 24, 0.25);
-  transform: scale(1.05);
-}
-
-.notification-dropdown-panel {
+.notification-dropdown-panel{
   position: absolute;
+  top: 52px;
   right: 0;
-  top: 50px;
-  width: 330px;
-  background: rgba(20, 20, 22, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  width: 340px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: #111827;
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 18px;
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6);
-  z-index: 99;
-  padding: 18px;
-  animation: dropdownFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  transform-origin: top right;
-  backdrop-filter: blur(16px);
+  z-index: 99999;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+  animation: dropdownFade 0.2s ease;
 }
 
-@keyframes dropdownFadeIn {
-  from {
+@keyframes dropdownFade{
+  from{
     opacity: 0;
-    transform: scale(0.95) translateY(-8px);
+    transform: translateY(-10px);
   }
-  to {
+  to{
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: translateY(0);
   }
 }
 
-.dropdown-header {
+.dropdown-header{
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding-bottom: 12px;
-  margin-bottom: 12px;
+  padding: 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-.dropdown-header h3 {
-  font-size: 14px;
-  font-weight: 800;
-  color: #fff;
+.dropdown-body{
+  padding: 10px;
 }
 
-.dropdown-header .clear-btn {
-  background: none;
+.bell-btn{
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
   border: none;
-  color: var(--primary);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 0;
   cursor: pointer;
-  transition: opacity 0.2s;
+  font-size: 18px;
+  background: rgba(255,255,255,0.06);
+  color: white;
 }
 
-.dropdown-header .clear-btn:hover {
-  opacity: 0.8;
-}
-
-.dropdown-body {
-  max-height: 250px;
-  overflow-y: auto;
+.nav-badge{
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: white;
+  font-size: 10px;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-right: 2px;
-}
-
-.dropdown-empty {
-  text-align: center;
-  padding: 24px 10px;
-  color: var(--muted);
-  font-size: 12px;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
 }
 
 /* 3D Credit Card Flipping */
