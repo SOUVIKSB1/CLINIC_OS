@@ -270,7 +270,6 @@ function AuthLanding({ onSession, toast, theme, toggleTheme, themeRotating }) {
   const [selectedSymptom, setSelectedSymptom] = useState(null);
   const [symptomLoading, setSymptomLoading] = useState(false);
   const [recommendedDept, setRecommendedDept] = useState(null);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [activeFaq, setActiveFaq] = useState(null);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
 
@@ -3493,6 +3492,7 @@ const ADMIN_NAV = [
 function PatientNotifications({ toast, setPage, dismissNotification, clearAllNotifications }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     api.get("/notifications")
