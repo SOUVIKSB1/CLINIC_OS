@@ -5,11 +5,13 @@ let pool;
 
 async function createPool() {
   try {
+    const resolvedPath = process.env.WALLET_LOCATION ? require('path').resolve(process.env.WALLET_LOCATION) : undefined;
     await oracledb.createPool({
       user:           process.env.DB_USER,
       password:       process.env.DB_PASSWORD,
       connectString:  process.env.DB_CONNECT_STRING,
-      walletLocation: process.env.WALLET_LOCATION ? require('path').resolve(process.env.WALLET_LOCATION) : undefined,
+      configDir:      resolvedPath,
+      walletLocation: resolvedPath,
       walletPassword: process.env.DB_PASSWORD,
       poolMin:        2,
       poolMax:        10,
