@@ -1,0 +1,31 @@
+{
+  "name": "clinic_backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "check": "node --check server.js && node --check db.js && node --check routes/auth.js && node --check routes/departments.js && node --check routes/doctors.js && node --check routes/patients.js && node --check routes/appointments.js && node --check routes/tests.js && node --check routes/bills.js && node --check routes/prescriptions.js && node --check routes/notifications.js && node --check scripts/migratePortal.js && node --check scripts/createAdmin.js",
+    "migrate-portal": "node scripts/migratePortal.js",
+    "create-admin": "node scripts/createAdmin.js",
+    "test": "npm run check"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.10.1",
+    "oracledb": "^6.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

@@ -1,0 +1,2 @@
+INSERT INTO departments(dept_name,location,phone) VALUES ('Cardiology','Block A','033-1001')
+/
