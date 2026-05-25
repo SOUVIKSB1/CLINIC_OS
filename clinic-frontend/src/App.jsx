@@ -2840,6 +2840,7 @@ function Billing({ toast }) {
   const markPaid = async (id) => {
     try {
       await api.put(`/bills/${id}/status`, { payment_status: "Paid" });
+      playSound("success");
       toast("Bill recorded as paid.");
       load();
     } catch (error) {
@@ -3853,6 +3854,7 @@ export default function App() {
   const logout = () => {
     localStorage.removeItem(SESSION_KEY);
     setSession(null);
+    playSound("success");
     toast("See you soon! Good Health 😇");
   };
   return (
