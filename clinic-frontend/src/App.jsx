@@ -3633,13 +3633,18 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
   }, [loadNotifications, page]);
 
   useEffect(() => {
-    if (showNotifications) {
-      const handle = setTimeout(() => {
-        setShowNotifications(false);
-      }, 0);
-      return () => clearTimeout(handle);
+  const closeDropdown = (e) => {
+    if (!e.target.closest(".notification-bell-container")) {
+      setShowNotifications(false);
     }
-  }, [page, showNotifications]);
+  };
+
+  document.addEventListener("click", closeDropdown);
+
+  return () => {
+    document.removeEventListener("click", closeDropdown);
+  };
+}, []);
 
   const visibleNotifications = notifications.filter(n => !dismissedIds.includes(n.id));
   const notificationCount = visibleNotifications.length;
