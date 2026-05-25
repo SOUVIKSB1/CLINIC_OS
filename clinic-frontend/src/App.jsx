@@ -52,79 +52,79 @@ const api = {
   del: (path) => request(path, { method: "DELETE" }),
 };
 
-const playSound = (type) => {
-  try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
-    const now = ctx.currentTime;
-    if (type === 'appointment' || type === 'confirm') {
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(659.25, now);
-      gain1.gain.setValueAtTime(0.08, now);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-      osc1.connect(gain1);
-      gain1.connect(ctx.destination);
-      osc1.start(now);
-      osc1.stop(now + 0.15);
+// const playSound = (type) => {
+//   try {
+//     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+//     if (!AudioContextClass) return;
+//     const ctx = new AudioContextClass();
+//     if (ctx.state === 'suspended') {
+//       ctx.resume();
+//     }
+//     const now = ctx.currentTime;
+//     if (type === 'appointment' || type === 'confirm') {
+//       const osc1 = ctx.createOscillator();
+//       const gain1 = ctx.createGain();
+//       osc1.type = 'sine';
+//       osc1.frequency.setValueAtTime(659.25, now);
+//       gain1.gain.setValueAtTime(0.08, now);
+//       gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+//       osc1.connect(gain1);
+//       gain1.connect(ctx.destination);
+//       osc1.start(now);
+//       osc1.stop(now + 0.15);
 
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(880.00, now + 0.1);
-      gain2.gain.setValueAtTime(0.08, now + 0.1);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-      osc2.connect(gain2);
-      gain2.connect(ctx.destination);
-      osc2.start(now + 0.1);
-      osc2.stop(now + 0.3);
-    } else if (type === 'payment' || type === 'pay') {
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(987.77, now);
-      gain1.gain.setValueAtTime(0.08, now);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-      osc1.connect(gain1);
-      gain1.connect(ctx.destination);
-      osc1.start(now);
-      osc1.stop(now + 0.08);
+//       const osc2 = ctx.createOscillator();
+//       const gain2 = ctx.createGain();
+//       osc2.type = 'sine';
+//       osc2.frequency.setValueAtTime(880.00, now + 0.1);
+//       gain2.gain.setValueAtTime(0.08, now + 0.1);
+//       gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+//       osc2.connect(gain2);
+//       gain2.connect(ctx.destination);
+//       osc2.start(now + 0.1);
+//       osc2.stop(now + 0.3);
+//     } else if (type === 'payment' || type === 'pay') {
+//       const osc1 = ctx.createOscillator();
+//       const gain1 = ctx.createGain();
+//       osc1.type = 'sine';
+//       osc1.frequency.setValueAtTime(987.77, now);
+//       gain1.gain.setValueAtTime(0.08, now);
+//       gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+//       osc1.connect(gain1);
+//       gain1.connect(ctx.destination);
+//       osc1.start(now);
+//       osc1.stop(now + 0.08);
 
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(1318.51, now + 0.06);
-      gain2.gain.setValueAtTime(0.08, now + 0.06);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-      osc2.connect(gain2);
-      gain2.connect(ctx.destination);
-      osc2.start(now + 0.06);
-      osc2.stop(now + 0.25);
-    } else if (type === 'completion' || type === 'complete') {
-      const notes = [523.25, 659.25, 783.99, 1046.50];
-      notes.forEach((freq, idx) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const noteStart = now + idx * 0.06;
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, noteStart);
-        gain.gain.setValueAtTime(0.06, noteStart);
-        gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.2);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(noteStart);
-        osc.stop(noteStart + 0.2);
-      });
-    }
-  } catch (err) {
-    console.warn("Failed to play sound: ", err);
-  }
-};
+//       const osc2 = ctx.createOscillator();
+//       const gain2 = ctx.createGain();
+//       osc2.type = 'sine';
+//       osc2.frequency.setValueAtTime(1318.51, now + 0.06);
+//       gain2.gain.setValueAtTime(0.08, now + 0.06);
+//       gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+//       osc2.connect(gain2);
+//       gain2.connect(ctx.destination);
+//       osc2.start(now + 0.06);
+//       osc2.stop(now + 0.25);
+//     } else if (type === 'completion' || type === 'complete') {
+//       const notes = [523.25, 659.25, 783.99, 1046.50];
+//       notes.forEach((freq, idx) => {
+//         const osc = ctx.createOscillator();
+//         const gain = ctx.createGain();
+//         const noteStart = now + idx * 0.06;
+//         osc.type = 'sine';
+//         osc.frequency.setValueAtTime(freq, noteStart);
+//         gain.gain.setValueAtTime(0.06, noteStart);
+//         gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.2);
+//         osc.connect(gain);
+//         gain.connect(ctx.destination);
+//         osc.start(noteStart);
+//         osc.stop(noteStart + 0.2);
+//       });
+//     }
+//   } catch (err) {
+//     console.warn("Failed to play sound: ", err);
+//   }
+// };
 
 
 const todayString = () => {
