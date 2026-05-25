@@ -1667,6 +1667,14 @@ tr:hover td {
 
 .notification-bell-container {
   position: relative;
+  z-index: 9999;
+}
+
+.notification-dropdown-panel {
+  position: absolute;
+  right: 0;
+  top: 55px;
+  z-index: 99999;
 }
 
 .bell-btn {

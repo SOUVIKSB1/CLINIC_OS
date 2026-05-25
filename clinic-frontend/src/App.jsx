@@ -270,7 +270,7 @@ function AuthLanding({ onSession, toast, theme, toggleTheme, themeRotating }) {
   const [selectedSymptom, setSelectedSymptom] = useState(null);
   const [symptomLoading, setSymptomLoading] = useState(false);
   const [recommendedDept, setRecommendedDept] = useState(null);
-
+  const [showNotifications, setShowNotifications] = useState(false);
   const [activeFaq, setActiveFaq] = useState(null);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
 
@@ -3725,11 +3725,11 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
             </button>
             {!isAdmin && (
               <div className="notification-bell-container">
-                <button className="bell-btn" onClick={() => setShowNotifications(showNotifications)}>
+                <button className="bell-btn" onClick={() => setShowNotifications(prev => !prev)}>
                   🔔
                   {notificationCount > 0 && <span className="nav-badge">{notificationCount}</span>}
                 </button>
-                {showNotifications && (
+                {showNotifications ? (
                   <div className="notification-dropdown-panel">
                     <div className="dropdown-header">
                       <h3>Recent Updates</h3>
@@ -3761,7 +3761,7 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
                       )}
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
             <div className="user-profile-badge" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 'bold' }}>
