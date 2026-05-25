@@ -4011,3 +4011,27 @@ body.light-theme .header-signout-btn:hover {
     min-width: 140px !important;
   }
 }
+
+
+
+
+
+.success-flash{
+  animation: successPulse 0.45s ease;
+}
+
+@keyframes successPulse{
+
+  0%{
+    filter: brightness(1);
+  }
+
+  50%{
+    filter: brightness(1.08);
+  }
+
+  100%{
+    filter: brightness(1);
+  }
+
+}

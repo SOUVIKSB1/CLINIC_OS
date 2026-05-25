@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
+import { playSound } from "./utils/sound";
 
 const API = import.meta.env.VITE_API_URL || "/api";
 const SESSION_KEY = "clinicos_session";
@@ -404,7 +405,8 @@ function AuthLanding({ onSession, toast, theme, toggleTheme, themeRotating }) {
         return;
       }
       onSession(result);
-      toast("Signed in successfully.");
+      playSound("success");
+      toast("Welcome Back! Stay Healthy 😇");
     } catch (error) {
       toast(error.message, "error");
     }
