@@ -385,7 +385,6 @@ function AuthLanding({ onSession, toast, theme, toggleTheme, themeRotating }) {
     try {
       const result = await api.post("/auth/register", register);
       onSession(result);
-      playSound("success");
       toast("Welcome to ClinicOS. Your patient account is ready.");
     } catch (error) {
       toast(error.message, "error");
@@ -2841,7 +2840,7 @@ function Billing({ toast }) {
   const markPaid = async (id) => {
     try {
       await api.put(`/bills/${id}/status`, { payment_status: "Paid" });
-      playSound("transaction");
+      playSound("success");
       toast("Bill recorded as paid.");
       load();
     } catch (error) {
@@ -2859,9 +2858,8 @@ function Billing({ toast }) {
           <Input label="Due date" type="date" value={form.due_date} onChange={event => setForm({ ...form, due_date: event.target.value })} />
           <Btn type="submit">Send bill</Btn>
         </form></Card>
-        <Card><h2>Issued bills</h2>{bills.length === 0 ? <Empty title="No bills issued" detail="" /> : bills.map(bill => <div className="list-row expanded" key={bill.BILL_ID}><div><strong>{bill.PATIENT_NAME}</strong><small>{bill.DESCRIPTION} · {money(bill.TOTAL_AMOUNT)}</small></div><div className="row-actions"><Badge status={bill.PAYMENT_STATUS} />{bill.PAYMENT_STATUS === "Pending" && <Btn variant="success" onClick={() => markPaid(bill.BILL_ID)} >Paid</Btn>}</div></div>)}</Card>
+        <Card><h2>Issued bills</h2>{bills.length === 0 ? <Empty title="No bills issued" detail="" /> : bills.map(bill => <div className="list-row expanded" key={bill.BILL_ID}><div><strong>{bill.PATIENT_NAME}</strong><small>{bill.DESCRIPTION} · {money(bill.TOTAL_AMOUNT)}</small></div><div className="row-actions"><Badge status={bill.PAYMENT_STATUS} />{bill.PAYMENT_STATUS === "Pending" && <Btn variant="success" onClick={() => markPaid(bill.BILL_ID)}>Paid</Btn>}</div></div>)}</Card>
       </div>
-      playSound("transaction");
     </>
   );
 }
