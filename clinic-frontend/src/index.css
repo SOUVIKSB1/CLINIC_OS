@@ -4061,3 +4061,17 @@ body.light-theme .header-signout-btn:hover {
     background-color: rgba(255, 255, 255, 0);
   }
 }
+
+/* Mobile Layout & Responsiveness Fixes */
+.landing,
+#specialists,
+.dept-filter-row {
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .directory-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
