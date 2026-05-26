@@ -6,7 +6,7 @@ const authenticate = require('../middlewares/authMiddleware');
 const authorize = require('../middlewares/roleMiddleware');
 
 // POST create a prescription
-router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
+router.post('/', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) => {
   const { appointment_id, medicines, instructions } = req.body;
   if (!appointment_id || !medicines?.trim()) {
     return res.status(400).json({ error: 'appointment_id and medicines are required' });

@@ -179,4 +179,85 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   }
 });
 
+// GET doctor's own appointments (for logged-in doctor)
+router.get('/me/appointments', authenticate, authorize('DOCTOR'), async (req, res) => {
+  if (!req.user.doctorId) {
+    return res.status(400).json({ error: 'Logged-in user is not associated with any doctor profile' });
+  }
+  let conn;
+  try {
+    conn = await getConnection();
+    const result = await conn.execute(
+      `SELECT a.appt_id, a.patient_id, a.dept_id, a.appt_time, a.status, a.reason, a.notes,
+              TO_CHAR(a.appt_date, 'YYYY-MM-DD') AS appt_date,
+              p.first_name || ' ' || p.last_name AS patient_name,
+              p.gender, TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS dob, p.phone
+       FROM appointments a
+       JOIN patients p ON a.patient_id = p.patient_id
+       WHERE a.doctor_id = :doctor_id
+       ORDER BY a.appt_date DESC, a.appt_time DESC`,
+      [req.user.doctorId],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
+// GET doctor's own patients (who have booked appointments with them)
+router.get('/me/patients', authenticate, authorize('DOCTOR'), async (req, res) => {
+  if (!req.user.doctorId) {
+    return res.status(400).json({ error: 'Logged-in user is not associated with any doctor profile' });
+  }
+  let conn;
+  try {
+    conn = await getConnection();
+    const result = await conn.execute(
+      `SELECT DISTINCT p.patient_id, p.first_name, p.last_name, p.email, p.phone, p.gender,
+                       TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS date_of_birth, p.blood_group
+       FROM patients p
+       JOIN appointments a ON p.patient_id = a.patient_id
+       WHERE a.doctor_id = :doctor_id
+       ORDER BY p.last_name, p.first_name`,
+      [req.user.doctorId],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
+// GET test reports shared with the logged-in doctor
+router.get('/me/shared-reports', authenticate, authorize('DOCTOR'), async (req, res) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    const result = await conn.execute(
+      `SELECT rs.share_id, rs.booking_id, TO_CHAR(rs.shared_at, 'YYYY-MM-DD') AS shared_at,
+              pt.results, pt.notes AS test_notes, TO_CHAR(pt.booking_date, 'YYYY-MM-DD') AS booking_date,
+              lt.test_name,
+              p.first_name || ' ' || p.last_name AS patient_name
+       FROM report_shares rs
+       JOIN patient_tests pt ON rs.booking_id = pt.booking_id
+       JOIN lab_tests lt ON pt.test_id = lt.test_id
+       JOIN patients p ON rs.patient_id = p.patient_id
+       WHERE LOWER(rs.recipient_email) = LOWER(:email)
+       ORDER BY rs.shared_at DESC`,
+      [req.user.email],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
 module.exports = router;

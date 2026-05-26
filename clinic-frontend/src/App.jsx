@@ -399,8 +399,8 @@ function AuthLanding({ onSession, toast, theme, toggleTheme, themeRotating }) {
     try {
       const result = await api.post("/auth/login", login);
       const expectsAdmin = tab === "authority-login";
-      if (expectsAdmin && result.user.ROLE !== "ADMIN") {
-        toast("This login is reserved for hospital authority accounts.", "error");
+      if (expectsAdmin && !["ADMIN", "DOCTOR"].includes(result.user.ROLE)) {
+        toast("This login is reserved for hospital authority and staff accounts.", "error");
         return;
       }
       if (!expectsAdmin && result.user.ROLE !== "PATIENT") {
@@ -2598,6 +2598,557 @@ function AuthorityDoctors({ toast }) {
   );
 }
 
+// ----------------------------------------------------
+// Staff Accounts Manager & Doctor Console Components
+// ----------------------------------------------------
+
+function AuthorityStaff({ toast }) {
+  const [staff, setStaff] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    full_name: "",
+    email: "",
+    password: "",
+    role: "ADMIN",
+    specialization: "",
+    dept_id: "",
+    phone: "",
+    available_days: "Mon-Fri",
+    fees: 0
+  });
+
+  const load = useCallback(() => {
+    Promise.all([
+      api.get("/auth/staff"),
+      api.get("/departments")
+    ])
+      .then(([s, d]) => {
+        setStaff(s);
+        setDepartments(d);
+      })
+      .catch(error => toast(error.message, "error"));
+  }, [toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post("/auth/create-staff", form);
+      toast("Staff account created successfully!");
+      setOpen(false);
+      setForm({
+        full_name: "",
+        email: "",
+        password: "",
+        role: "ADMIN",
+        specialization: "",
+        dept_id: "",
+        phone: "",
+        available_days: "Mon-Fri",
+        fees: 0
+      });
+      load();
+    } catch (error) {
+      toast(error.message, "error");
+    }
+  };
+
+  const remove = async (id) => {
+    if (!confirm("Are you sure you want to delete this staff member? This will delete their login credentials and associated doctor profile if they are a doctor.")) return;
+    try {
+      await api.del(`/auth/staff/${id}`);
+      toast("Staff account deleted.");
+      load();
+    } catch (error) {
+      toast(error.message, "error");
+    }
+  };
+
+  return (
+    <>
+      <PageHeader
+        title="Staff Accounts"
+        subtitle="Manage hospital authority (Admin) and specialist (Doctor) login accounts."
+        action={<Btn onClick={() => setOpen(true)}>Create Staff Account</Btn>}
+      />
+
+      <Card>
+        <h2>Current Staff</h2>
+        {staff.length === 0 ? (
+          <Empty title="No staff members found" detail="" />
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid var(--border)", textAlign: "left" }}>
+                  <th style={{ padding: "12px", color: "var(--muted)", fontWeight: 700 }}>Name</th>
+                  <th style={{ padding: "12px", color: "var(--muted)", fontWeight: 700 }}>Email</th>
+                  <th style={{ padding: "12px", color: "var(--muted)", fontWeight: 700 }}>Role</th>
+                  <th style={{ padding: "12px", color: "var(--muted)", fontWeight: 700 }}>Created Date</th>
+                  <th style={{ padding: "12px", color: "var(--muted)", fontWeight: 700, textAlign: "center" }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {staff.map(u => (
+                  <tr key={u.USER_ID} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td style={{ padding: "12px", fontWeight: 600 }}>{u.FULL_NAME}</td>
+                    <td style={{ padding: "12px" }}>{u.EMAIL}</td>
+                    <td style={{ padding: "12px" }}>
+                      <span className={`status-pill ${u.ROLE === "ADMIN" ? "high" : "tracked"}`}>
+                        {u.ROLE}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px" }}>{u.CREATED_AT}</td>
+                    <td style={{ padding: "12px", textAlign: "center" }}>
+                      <button
+                        onClick={() => remove(u.USER_ID)}
+                        style={{
+                          background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+                          color: "#ef4444", borderRadius: 8, padding: "5px 10px", cursor: "pointer",
+                          fontSize: 12, fontWeight: 600
+                        }}
+                      >
+                        🗑️ Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {open && (
+        <Modal title="Create Staff Account" onClose={() => setOpen(false)}>
+          <form className="form-grid" onSubmit={submit}>
+            <Input
+              label="Full Name *"
+              value={form.full_name}
+              onChange={e => setForm({ ...form, full_name: e.target.value })}
+              required
+            />
+            <Input
+              label="Email Address *"
+              type="email"
+              value={form.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              required
+            />
+            <Input
+              label="Password *"
+              type="password"
+              placeholder="Min. 6 characters"
+              value={form.password}
+              onChange={e => setForm({ ...form, password: e.target.value })}
+              required
+            />
+            <Select
+              label="Role *"
+              value={form.role}
+              onChange={e => setForm({ ...form, role: e.target.value })}
+              required
+            >
+              <option value="ADMIN">ADMIN</option>
+              <option value="DOCTOR">DOCTOR</option>
+            </Select>
+
+            {form.role === "DOCTOR" && (
+              <>
+                <div className="span-all" style={{ borderTop: "1px solid var(--border)", margin: "10px 0", paddingTop: "10px" }}>
+                  <h4 style={{ margin: 0, color: "var(--muted)" }}>Doctor Profile Information</h4>
+                </div>
+                <Input
+                  label="Specialization *"
+                  placeholder="e.g. Cardiologist"
+                  value={form.specialization}
+                  onChange={e => setForm({ ...form, specialization: e.target.value })}
+                  required={form.role === "DOCTOR"}
+                />
+                <Select
+                  label="Department *"
+                  value={form.dept_id}
+                  onChange={e => setForm({ ...form, dept_id: e.target.value })}
+                  required={form.role === "DOCTOR"}
+                >
+                  <option value="">Select Department</option>
+                  {departments.map(d => (
+                    <option key={d.DEPT_ID} value={d.DEPT_ID}>{d.DEPT_NAME}</option>
+                  ))}
+                </Select>
+                <Input
+                  label="Phone Number"
+                  value={form.phone}
+                  onChange={e => setForm({ ...form, phone: e.target.value })}
+                />
+                <Input
+                  label="Available Days"
+                  placeholder="e.g. Mon-Fri"
+                  value={form.available_days}
+                  onChange={e => setForm({ ...form, available_days: e.target.value })}
+                />
+                <Input
+                  label="Fees *"
+                  type="number"
+                  min="0"
+                  value={form.fees}
+                  onChange={e => setForm({ ...form, fees: Number(e.target.value) })}
+                  required={form.role === "DOCTOR"}
+                />
+              </>
+            )}
+
+            <div className="span-all" style={{ marginTop: 16 }}>
+              <Btn type="submit">Create Account</Btn>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+function DoctorDashboard({ user, setPage, toast }) {
+  const [stats, setStats] = useState({ appointments: 0, patients: 0, reports: 0 });
+  const [upcoming, setUpcoming] = useState([]);
+  
+  useEffect(() => {
+    Promise.all([
+      api.get("/doctors/me/appointments"),
+      api.get("/doctors/me/patients"),
+      api.get("/doctors/me/shared-reports")
+    ])
+      .then(([appts, pts, rpts]) => {
+        setStats({
+          appointments: appts.filter(a => a.STATUS === "Scheduled" || a.STATUS === "Approved" || a.STATUS === "Pending").length,
+          patients: pts.length,
+          reports: rpts.length
+        });
+        
+        const today = todayString();
+        const upcomingAppts = appts.filter(a => a.APPT_DATE >= today && ["Pending", "Approved", "Scheduled"].includes(a.STATUS));
+        setUpcoming(upcomingAppts.slice(0, 5));
+      })
+      .catch(err => toast(err.message, "error"));
+  }, [toast]);
+
+  return (
+    <>
+      <PageHeader title="Doctor Console" subtitle={`Welcome back, ${user.FULL_NAME}`} />
+      
+      <div className="vitals-summary-row" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+        <div className="vital-summary-card weight" style={{ cursor: "pointer" }} onClick={() => setPage("appointments")}>
+          <div className="vital-icon">📅</div>
+          <div className="vital-value">{stats.appointments}</div>
+          <div className="vital-label">Active Appointments</div>
+        </div>
+        <div className="vital-summary-card blood-pressure" style={{ cursor: "pointer" }} onClick={() => setPage("patients")}>
+          <div className="vital-icon">👥</div>
+          <div className="vital-value">{stats.patients}</div>
+          <div className="vital-label">My Patients</div>
+        </div>
+        <div className="vital-summary-card blood-sugar" style={{ cursor: "pointer" }} onClick={() => setPage("shared-reports")}>
+          <div className="vital-icon">🧪</div>
+          <div className="vital-value">{stats.reports}</div>
+          <div className="vital-label">Shared Test Reports</div>
+        </div>
+      </div>
+
+      <Card>
+        <h2>📅 Upcoming Schedule</h2>
+        {upcoming.length === 0 ? (
+          <Empty title="No upcoming appointments" detail="Your schedule is clear." />
+        ) : (
+          upcoming.map(appt => (
+            <div className="list-row expanded" key={appt.APPT_ID}>
+              <div>
+                <strong>{appt.PATIENT_NAME}</strong>
+                <small>{appt.APPT_DATE} · {appt.APPT_TIME}</small>
+                {appt.REASON && <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>Reason: {appt.REASON}</p>}
+              </div>
+              <div className="row-actions">
+                <Badge status={appt.STATUS} />
+                <Btn variant="primary" onClick={() => setPage("appointments")}>Go to Appointments</Btn>
+              </div>
+            </div>
+          ))
+        )}
+      </Card>
+    </>
+  );
+}
+
+function DoctorAppointments({ user, toast }) {
+  const [appointments, setAppointments] = useState([]);
+  const [prescribeAppt, setPrescribeAppt] = useState(null);
+  const [viewPrescAppt, setViewPrescAppt] = useState(null);
+  const [prescription, setPrescription] = useState(null);
+  const [form, setForm] = useState({ medicines: "", instructions: "" });
+
+  const load = useCallback(() => {
+    api.get("/doctors/me/appointments")
+      .then(setAppointments)
+      .catch(err => toast(err.message, "error"));
+  }, [toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handlePrescribe = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post("/prescriptions", {
+        appointment_id: prescribeAppt.APPT_ID,
+        medicines: form.medicines,
+        instructions: form.instructions
+      });
+      toast("Prescription generated successfully!");
+      setPrescribeAppt(null);
+      setForm({ medicines: "", instructions: "" });
+      load();
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  };
+
+  const viewPrescription = async (appt) => {
+    setViewPrescAppt(appt);
+    try {
+      const data = await api.get(`/prescriptions/appointment/${appt.APPT_ID}`);
+      setPrescription(data);
+    } catch (err) {
+      toast(err.message, "error");
+      setViewPrescAppt(null);
+    }
+  };
+
+  return (
+    <>
+      <PageHeader title="My Appointments" subtitle="Manage patient consults and prescriptions." />
+      
+      <Card>
+        {appointments.length === 0 ? (
+          <Empty title="No appointments scheduled" detail="" />
+        ) : (
+          appointments.map(appt => (
+            <div className="list-row expanded" key={appt.APPT_ID}>
+              <div>
+                <strong>{appt.PATIENT_NAME}</strong>
+                <small>{appt.APPT_DATE} · {appt.APPT_TIME}</small>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+                  <span>Gender: {appt.GENDER}</span> · <span>DOB: {appt.DOB}</span> · <span>Phone: {appt.PHONE}</span>
+                </div>
+                {appt.REASON && <p style={{ margin: "6px 0 0", fontSize: 13 }}>Reason: {appt.REASON}</p>}
+                {appt.NOTES && <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)", fontStyle: "italic" }}>Admin Notes: {appt.NOTES}</p>}
+              </div>
+              <div className="row-actions">
+                <Badge status={appt.STATUS} />
+                {(appt.STATUS === "Approved" || appt.STATUS === "Scheduled") && (
+                  <Btn onClick={() => setPrescribeAppt(appt)}>✍️ Prescribe</Btn>
+                )}
+                {appt.STATUS === "Completed" && (
+                  <Btn variant="ghost" onClick={() => viewPrescription(appt)}>📄 View Rx</Btn>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </Card>
+
+      {prescribeAppt && (
+        <Modal title={`Write Prescription - ${prescribeAppt.PATIENT_NAME}`} onClose={() => setPrescribeAppt(null)}>
+          <form className="stack" onSubmit={handlePrescribe}>
+            <Textarea
+              label="Medicines (e.g. Paracetamol 500mg 1-0-1, Amoxicillin 250mg 1-1-1) *"
+              placeholder="List medicines with dosing pattern..."
+              value={form.medicines}
+              onChange={e => setForm({ ...form, medicines: e.target.value })}
+              required
+            />
+            <Textarea
+              label="Instructions"
+              placeholder="e.g. Take after meals, complete 5 days course"
+              value={form.instructions}
+              onChange={e => setForm({ ...form, instructions: e.target.value })}
+            />
+            <div style={{ marginTop: 12 }}>
+              <Btn type="submit">Submit Prescription & Complete Appointment</Btn>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {viewPrescAppt && (
+        <Modal title={`Prescription - ${viewPrescAppt.PATIENT_NAME}`} onClose={() => { setViewPrescAppt(null); setPrescription(null); }}>
+          {prescription ? (
+            <div className="stack" style={{ gap: 16 }}>
+              <div>
+                <small style={{ color: "var(--muted)" }}>DATE & TIME</small>
+                <div>{prescription.appt_date} · {prescription.appt_time}</div>
+              </div>
+              <div>
+                <small style={{ color: "var(--muted)" }}>DOCTOR</small>
+                <div>{prescription.doctor_name} ({prescription.specialization})</div>
+              </div>
+              <div>
+                <small style={{ color: "var(--muted)" }}>MEDICINES</small>
+                <div style={{ fontWeight: 600, whiteSpace: "pre-wrap" }}>{prescription.medicines}</div>
+              </div>
+              {prescription.instructions && (
+                <div>
+                  <small style={{ color: "var(--muted)" }}>INSTRUCTIONS</small>
+                  <div style={{ whiteSpace: "pre-wrap" }}>{prescription.instructions}</div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>Loading prescription...</div>
+          )}
+        </Modal>
+      )}
+    </>
+  );
+}
+
+function DoctorPatients({ user, toast }) {
+  const [patients, setPatients] = useState([]);
+  const [viewingPatient, setViewingPatient] = useState(null);
+  const [patientVitals, setPatientVitals] = useState([]);
+  const [loadingVitals, setLoadingVitals] = useState(false);
+
+  useEffect(() => {
+    api.get("/doctors/me/patients")
+      .then(setPatients)
+      .catch(err => toast(err.message, "error"));
+  }, [toast]);
+
+  const viewPatientDetails = async (patient) => {
+    setViewingPatient(patient);
+    setLoadingVitals(true);
+    try {
+      const data = await api.get(`/patients/${patient.PATIENT_ID}/vitals`);
+      setPatientVitals(data);
+    } catch (err) {
+      toast(err.message, "error");
+      setPatientVitals([]);
+    } finally {
+      setLoadingVitals(false);
+    }
+  };
+
+  return (
+    <>
+      <PageHeader title="My Patients" subtitle="View patient records and recorded vitals history." />
+      
+      <div className="two-columns">
+        <Card>
+          <h2>Patients List</h2>
+          {patients.length === 0 ? (
+            <Empty title="No patients found" detail="Patients who book appointments with you will appear here." />
+          ) : (
+            patients.map(p => (
+              <div
+                className={`list-row clickable ${viewingPatient?.PATIENT_ID === p.PATIENT_ID ? "active" : ""}`}
+                key={p.PATIENT_ID}
+                onClick={() => viewPatientDetails(p)}
+                style={{ cursor: "pointer", background: viewingPatient?.PATIENT_ID === p.PATIENT_ID ? "var(--surface)" : "transparent" }}
+              >
+                <div>
+                  <strong>{p.FIRST_NAME} {p.LAST_NAME}</strong>
+                  <small>{p.EMAIL} · {p.PHONE}</small>
+                </div>
+              </div>
+            ))
+          )}
+        </Card>
+
+        <Card>
+          <h2>Patient Health Details</h2>
+          {viewingPatient ? (
+            <div className="stack" style={{ gap: 16 }}>
+              <div>
+                <h3 style={{ margin: 0 }}>{viewingPatient.FIRST_NAME} {viewingPatient.LAST_NAME}</h3>
+                <small style={{ color: "var(--muted)" }}>Blood Group: {viewingPatient.BLOOD_GROUP || "N/A"} · Gender: {viewingPatient.GENDER}</small>
+              </div>
+              
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+                <h4>Vitals History</h4>
+                {loadingVitals ? (
+                  <div>Loading vitals...</div>
+                ) : patientVitals.length === 0 ? (
+                  <div style={{ fontSize: 13, color: "var(--muted)" }}>No vitals logged yet by this patient.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {patientVitals.map(v => (
+                      <div key={v.VITAL_ID} style={{ padding: 10, background: "var(--surface)", borderRadius: 10, fontSize: 12 }}>
+                        <strong>{v.CHECK_DATE}</strong>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px", marginTop: 6 }}>
+                          <div>Blood Pressure: <span style={{ fontWeight: 600 }}>{v.BLOOD_PRESSURE || "—"}</span></div>
+                          <div>Blood Sugar: <span style={{ fontWeight: 600 }}>{v.BLOOD_SUGAR ? `${v.BLOOD_SUGAR} mg/dL` : "—"}</span></div>
+                          <div>Weight: <span style={{ fontWeight: 600 }}>{v.WEIGHT ? `${v.WEIGHT} kg` : "—"}</span></div>
+                          <div>Heart Rate: <span style={{ fontWeight: 600 }}>{v.HEART_RATE ? `${v.HEART_RATE} bpm` : "—"}</span></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <Empty title="No patient selected" detail="Click on a patient from the list to view their profile and vitals." />
+          )}
+        </Card>
+      </div>
+    </>
+  );
+}
+
+function DoctorSharedReports({ user, toast }) {
+  const [reports, setReports] = useState([]);
+
+  useEffect(() => {
+    api.get("/doctors/me/shared-reports")
+      .then(setReports)
+      .catch(err => toast(err.message, "error"));
+  }, [toast]);
+
+  return (
+    <>
+      <PageHeader title="Shared Diagnostic Reports" subtitle="View laboratory test results shared by patients." />
+      
+      <Card>
+        {reports.length === 0 ? (
+          <Empty title="No shared reports" detail="Diagnostic reports shared with your email will appear here." />
+        ) : (
+          reports.map(rep => (
+            <div className="list-row expanded" key={rep.SHARE_ID}>
+              <div>
+                <strong>{rep.TEST_NAME}</strong>
+                <small>Shared by {rep.PATIENT_NAME} on {rep.SHARED_AT}</small>
+                <div style={{ margin: "8px 0 0", fontSize: 13, padding: 10, background: "var(--surface)", borderRadius: 10 }}>
+                  <div style={{ fontWeight: 600, color: "var(--text)" }}>Results:</div>
+                  <p style={{ margin: "4px 0 0", whiteSpace: "pre-wrap" }}>{rep.RESULTS || "No findings recorded."}</p>
+                  {rep.TEST_NOTES && (
+                    <>
+                      <div style={{ fontWeight: 600, color: "var(--muted)", marginTop: 6 }}>Notes:</div>
+                      <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted)" }}>{rep.TEST_NOTES}</p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </Card>
+    </>
+  );
+}
+
 function AuthorityDepartments({ toast }) {
   const [departments, setDepartments] = useState([]);
   const [doctors, setDoctors] = useState([]);
@@ -3278,6 +3829,7 @@ function HealthTracker({ toast }) {
     if (type === "weight") return "normal";
     if (type === "bp") {
       const sys = parseInt(val);
+      if (isNaN(sys)) return "";
       return sys > 140 ? "high" : sys < 90 ? "low" : "normal";
     }
     return "normal";
@@ -3375,6 +3927,52 @@ function HealthTracker({ toast }) {
               <text x={PX - 8} y={g.y + 4} textAnchor="end" className="chart-axis-label">{g.label}</text>
             </g>
           ))}
+          {/* Normal Range Highlight Zone (rendered when exactly one of Heart Rate or Blood Sugar is active) */}
+          {(() => {
+            if (datasets.length === 1 && datasets[0].hasData) {
+              const ds = datasets[0];
+              if (ds.key === "HEART_RATE" || ds.key === "BLOOD_SUGAR") {
+                const normalMin = ds.key === "HEART_RATE" ? 60 : 70;
+                const normalMax = ds.key === "HEART_RATE" ? 100 : 140;
+                const yMinVal = toY(ds, normalMin);
+                const yMaxVal = toY(ds, normalMax);
+                const rectTop = Math.max(PY, Math.min(yMinVal, yMaxVal));
+                const rectBottom = Math.min(PY + ch, Math.max(yMinVal, yMaxVal));
+                const rectHeight = Math.max(0, rectBottom - rectTop);
+                
+                if (rectHeight > 0) {
+                  return (
+                    <g key="normal-zone">
+                      <rect
+                        x={PX}
+                        y={rectTop}
+                        width={cw}
+                        height={rectHeight}
+                        fill={ds.key === "HEART_RATE" ? "rgba(239, 68, 68, 0.04)" : "rgba(245, 158, 11, 0.04)"}
+                        stroke={ds.key === "HEART_RATE" ? "rgba(239, 68, 68, 0.15)" : "rgba(245, 158, 11, 0.15)"}
+                        strokeDasharray="4 2"
+                        className="chart-normal-zone"
+                      />
+                      <text
+                        x={W - PX - 8}
+                        y={rectTop + 14}
+                        textAnchor="end"
+                        style={{
+                          fill: ds.key === "HEART_RATE" ? "rgba(239, 68, 68, 0.6)" : "rgba(245, 158, 11, 0.6)",
+                          fontSize: "10px",
+                          fontWeight: "700",
+                          letterSpacing: "0.5px"
+                        }}
+                      >
+                        Normal ({normalMin}-{normalMax} {ds.unit})
+                      </text>
+                    </g>
+                  );
+                }
+              }
+            }
+            return null;
+          })()}
           {/* X-axis date labels — deduplicated and spaced to avoid overlap */}
           {(() => {
             // Build unique date positions: for each unique date, use the LAST index where it appears
@@ -3409,7 +4007,11 @@ function HealthTracker({ toast }) {
               key={`line-${ds.cls}`}
               d={buildPath(ds)}
               className={`chart-line ${ds.cls}-line`}
-              style={{ strokeDasharray: totalLen, strokeDashoffset: totalLen }}
+              style={{
+                "--path-len": totalLen,
+                strokeDasharray: "var(--path-len)",
+                strokeDashoffset: "var(--path-len)",
+              }}
             />
           ))}
           {/* Dots — only for non-null, non-zero values */}
@@ -3424,12 +4026,16 @@ function HealthTracker({ toast }) {
                 cy={y}
                 className={`chart-dot ${ds.cls}-dot`}
                 onMouseEnter={() => {
+                  let normalRef = "";
+                  if (ds.key === "HEART_RATE") normalRef = "Normal: 60-100 bpm";
+                  if (ds.key === "BLOOD_SUGAR") normalRef = "Normal: 70-140 mg/dL";
                   setTooltip({
                     x, y: y - 10,
                     label: ds.label,
                     value: `${raw} ${ds.unit}`,
                     date: v.CHECK_DATE,
                     color: ds.color,
+                    normalRef,
                   });
                 }}
                 onMouseLeave={() => setTooltip(null)}
@@ -3446,8 +4052,14 @@ function HealthTracker({ toast }) {
               borderLeft: `3px solid ${tooltip.color}`,
             }}
           >
-            <strong>{tooltip.label}</strong>
-            <span>{tooltip.value} · {tooltip.date}</span>
+            <div className="tooltip-header">
+              <strong>{tooltip.label}</strong>
+              <span className="tooltip-date">{tooltip.date}</span>
+            </div>
+            <div className="tooltip-body">
+              <span className="tooltip-value" style={{ color: tooltip.color }}>{tooltip.value}</span>
+              {tooltip.normalRef && <span className="tooltip-normal">{tooltip.normalRef}</span>}
+            </div>
           </div>
         )}
         <div className="chart-legend">
@@ -3487,25 +4099,25 @@ function HealthTracker({ toast }) {
       {/* Summary Cards */}
       {latest && (
         <div className="vitals-summary-row">
-          <div className="vital-summary-card">
-            <div className="vital-icon">❤️</div>
+          <div className="vital-summary-card heart-rate">
+            <div className="vital-icon heart-beat">❤️</div>
             <div className="vital-value">{latest.HEART_RATE || "—"}</div>
             <div className="vital-label">Heart Rate (bpm)</div>
             {latest.HEART_RATE && <span className={`vital-status ${getStatus("hr", latest.HEART_RATE)}`}>{getStatus("hr", latest.HEART_RATE)}</span>}
           </div>
-          <div className="vital-summary-card">
+          <div className="vital-summary-card blood-sugar">
             <div className="vital-icon">🩸</div>
             <div className="vital-value">{latest.BLOOD_SUGAR || "—"}</div>
             <div className="vital-label">Blood Sugar (mg/dL)</div>
             {latest.BLOOD_SUGAR && <span className={`vital-status ${getStatus("sugar", latest.BLOOD_SUGAR)}`}>{getStatus("sugar", latest.BLOOD_SUGAR)}</span>}
           </div>
-          <div className="vital-summary-card">
+          <div className="vital-summary-card weight">
             <div className="vital-icon">⚖️</div>
             <div className="vital-value">{latest.WEIGHT || "—"}</div>
             <div className="vital-label">Weight (kg)</div>
             <span className="vital-status normal">tracked</span>
           </div>
-          <div className="vital-summary-card">
+          <div className="vital-summary-card blood-pressure">
             <div className="vital-icon">🫀</div>
             <div className="vital-value">{latest.BLOOD_PRESSURE || "—"}</div>
             <div className="vital-label">Blood Pressure</div>
@@ -3520,10 +4132,77 @@ function HealthTracker({ toast }) {
           <h2>Log New Vitals Reading</h2>
           <form onSubmit={submitVitals}>
             <div className="log-vitals-form">
-              <Input label="Blood Pressure" placeholder="e.g. 120/80" value={logForm.blood_pressure} onChange={e => setLogForm(f => ({ ...f, blood_pressure: e.target.value }))} />
-              <Input label="Blood Sugar *" type="number" min="30" max="500" placeholder="mg/dL" value={logForm.blood_sugar} onChange={e => setLogForm(f => ({ ...f, blood_sugar: e.target.value }))} required />
-              <Input label="Weight *" type="number" step="0.1" min="20" max="300" placeholder="kg" value={logForm.weight} onChange={e => setLogForm(f => ({ ...f, weight: e.target.value }))} required />
-              <Input label="Heart Rate *" type="number" min="30" max="250" placeholder="bpm" value={logForm.heart_rate} onChange={e => setLogForm(f => ({ ...f, heart_rate: e.target.value }))} required />
+              <Input
+                label={
+                  <>
+                    <span>Blood Pressure</span>
+                    {logForm.blood_pressure && (
+                      <span className={`input-badge ${getStatus("bp", logForm.blood_pressure)}`}>
+                        {getStatus("bp", logForm.blood_pressure)}
+                      </span>
+                    )}
+                  </>
+                }
+                placeholder="e.g. 120/80"
+                value={logForm.blood_pressure}
+                onChange={e => setLogForm(f => ({ ...f, blood_pressure: e.target.value }))}
+              />
+              <Input
+                label={
+                  <>
+                    <span>Blood Sugar *</span>
+                    {logForm.blood_sugar && (
+                      <span className={`input-badge ${getStatus("sugar", Number(logForm.blood_sugar))}`}>
+                        {getStatus("sugar", Number(logForm.blood_sugar))}
+                      </span>
+                    )}
+                  </>
+                }
+                type="number"
+                min="30"
+                max="500"
+                placeholder="mg/dL"
+                value={logForm.blood_sugar}
+                onChange={e => setLogForm(f => ({ ...f, blood_sugar: e.target.value }))}
+                required
+              />
+              <Input
+                label={
+                  <>
+                    <span>Weight *</span>
+                    {logForm.weight && (
+                      <span className="input-badge normal">tracked</span>
+                    )}
+                  </>
+                }
+                type="number"
+                step="0.1"
+                min="20"
+                max="300"
+                placeholder="kg"
+                value={logForm.weight}
+                onChange={e => setLogForm(f => ({ ...f, weight: e.target.value }))}
+                required
+              />
+              <Input
+                label={
+                  <>
+                    <span>Heart Rate *</span>
+                    {logForm.heart_rate && (
+                      <span className={`input-badge ${getStatus("hr", Number(logForm.heart_rate))}`}>
+                        {getStatus("hr", Number(logForm.heart_rate))}
+                      </span>
+                    )}
+                  </>
+                }
+                type="number"
+                min="30"
+                max="250"
+                placeholder="bpm"
+                value={logForm.heart_rate}
+                onChange={e => setLogForm(f => ({ ...f, heart_rate: e.target.value }))}
+                required
+              />
             </div>
             <div style={{ marginTop: 16 }}>
               <Btn type="submit">Save Reading</Btn>
@@ -3575,21 +4254,40 @@ function HealthTracker({ toast }) {
                   const sugarStatus = v.BLOOD_SUGAR ? getStatus("sugar", v.BLOOD_SUGAR) : null;
                   const hrStatus = v.HEART_RATE ? getStatus("hr", v.HEART_RATE) : null;
                   const bpStatus = v.BLOOD_PRESSURE ? getStatus("bp", v.BLOOD_PRESSURE) : null;
-                  const statusColor = { normal: "#10b981", high: "#ef4444", low: "#eab308" };
                   return (
                     <tr key={v.VITAL_ID} style={{ borderBottom: "1px solid var(--border)", transition: "background 0.15s ease" }} onMouseEnter={e => e.currentTarget.style.background = "var(--surface)"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                       <td style={{ padding: "10px 12px", fontWeight: 600 }}>{v.CHECK_DATE}</td>
                       <td style={{ padding: "10px 12px" }}>
-                        {v.BLOOD_PRESSURE ? <span style={{ color: statusColor[bpStatus] || "var(--text)", fontWeight: 600 }}>{v.BLOOD_PRESSURE} <span style={{ fontSize: 10, color: "var(--muted)" }}>mmHg</span></span> : <span style={{ color: "var(--muted)" }}>—</span>}
+                        {v.BLOOD_PRESSURE ? (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ fontWeight: 600 }}>{v.BLOOD_PRESSURE} <span style={{ fontSize: 10, color: "var(--muted)" }}>mmHg</span></span>
+                            <span className={`status-pill ${bpStatus}`}>{bpStatus}</span>
+                          </div>
+                        ) : <span style={{ color: "var(--muted)" }}>—</span>}
                       </td>
                       <td style={{ padding: "10px 12px" }}>
-                        {v.BLOOD_SUGAR ? <span style={{ color: statusColor[sugarStatus] || "var(--text)", fontWeight: 600 }}>{v.BLOOD_SUGAR} <span style={{ fontSize: 10, color: "var(--muted)" }}>mg/dL</span></span> : <span style={{ color: "var(--muted)" }}>—</span>}
+                        {v.BLOOD_SUGAR ? (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ fontWeight: 600 }}>{v.BLOOD_SUGAR} <span style={{ fontSize: 10, color: "var(--muted)" }}>mg/dL</span></span>
+                            <span className={`status-pill ${sugarStatus}`}>{sugarStatus}</span>
+                          </div>
+                        ) : <span style={{ color: "var(--muted)" }}>—</span>}
                       </td>
                       <td style={{ padding: "10px 12px" }}>
-                        {v.WEIGHT ? <span style={{ fontWeight: 600 }}>{v.WEIGHT} <span style={{ fontSize: 10, color: "var(--muted)" }}>kg</span></span> : <span style={{ color: "var(--muted)" }}>—</span>}
+                        {v.WEIGHT ? (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ fontWeight: 600 }}>{v.WEIGHT} <span style={{ fontSize: 10, color: "var(--muted)" }}>kg</span></span>
+                            <span className="status-pill tracked">tracked</span>
+                          </div>
+                        ) : <span style={{ color: "var(--muted)" }}>—</span>}
                       </td>
                       <td style={{ padding: "10px 12px" }}>
-                        {v.HEART_RATE ? <span style={{ color: statusColor[hrStatus] || "var(--text)", fontWeight: 600 }}>{v.HEART_RATE} <span style={{ fontSize: 10, color: "var(--muted)" }}>bpm</span></span> : <span style={{ color: "var(--muted)" }}>—</span>}
+                        {v.HEART_RATE ? (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ fontWeight: 600 }}>{v.HEART_RATE} <span style={{ fontSize: 10, color: "var(--muted)" }}>bpm</span></span>
+                            <span className={`status-pill ${hrStatus}`}>{hrStatus}</span>
+                          </div>
+                        ) : <span style={{ color: "var(--muted)" }}>—</span>}
                       </td>
                       <td style={{ padding: "10px 12px", textAlign: "center" }}>
                         <button
@@ -3840,7 +4538,10 @@ const PATIENT_NAV = [
   ["home", "Dashboard"], ["profile", "My Profile"], ["book", "Book Appointment"], ["appointments", "My Appointments"], ["tests", "Diagnostic Tests"], ["bills", "My Bills"], ["vitals", "Health Tracker"], ["meds", "My Meds"],
 ];
 const ADMIN_NAV = [
-  ["dashboard", "Dashboard"], ["appointments", "Appointments Manager"], ["test-requests", "Tests Manager"], ["billing", "Billing"], ["patients", "Patients"], ["doctors", "Doctors"], ["departments", "Departments"],
+  ["dashboard", "Dashboard"], ["appointments", "Appointments Manager"], ["test-requests", "Tests Manager"], ["billing", "Billing"], ["patients", "Patients"], ["doctors", "Doctors"], ["departments", "Departments"], ["staff", "Staff Accounts"],
+];
+const DOCTOR_NAV = [
+  ["dashboard", "Dashboard"], ["appointments", "My Appointments"], ["patients", "My Patients"], ["shared-reports", "Shared Reports"],
 ];
 
 function PatientNotifications({ toast, setPage, dismissNotification, clearAllNotifications }) {
@@ -3934,7 +4635,8 @@ function PatientNotifications({ toast, setPage, dismissNotification, clearAllNot
 
 function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotating }) {
   const isAdmin = session.user.ROLE === "ADMIN";
-  const nav = isAdmin ? ADMIN_NAV : PATIENT_NAV;
+  const isDoctor = session.user.ROLE === "DOCTOR";
+  const nav = isAdmin ? ADMIN_NAV : (isDoctor ? DOCTOR_NAV : PATIENT_NAV);
   const [page, setPage] = useState(nav[0][0]);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -3962,7 +4664,7 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
   }, [setDismissedIds]);
 
   const loadNotifications = useCallback(() => {
-    if (!isAdmin) {
+    if (session.user.ROLE === "PATIENT") {
       api.get("/notifications")
         .then(rows => {
           setNotifications(prev => {
@@ -3985,7 +4687,7 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
         })
         .catch(() => {});
     }
-  }, [isAdmin, setDismissedIds]);
+  }, [session.user.ROLE, setDismissedIds]);
 
   useEffect(() => {
     loadNotifications();
@@ -4020,6 +4722,15 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
       patients: <AuthorityPatients toast={toast} />,
       doctors: <AuthorityDoctors toast={toast} />,
       departments: <AuthorityDepartments toast={toast} />,
+      staff: <AuthorityStaff toast={toast} />,
+    };
+    content = pages[page];
+  } else if (isDoctor) {
+    const pages = {
+      dashboard: <DoctorDashboard user={session.user} setPage={setPage} toast={toast} />,
+      appointments: <DoctorAppointments user={session.user} toast={toast} />,
+      patients: <DoctorPatients user={session.user} toast={toast} />,
+      "shared-reports": <DoctorSharedReports user={session.user} toast={toast} />,
     };
     content = pages[page];
   } else {
@@ -4049,7 +4760,7 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
         >
           ✕
         </button>
-        <div className="brand"><b>+</b><div><strong>ClinicOS</strong><small>{isAdmin ? "Authority Console" : "Patient Portal"}</small></div></div>
+        <div className="brand"><b>+</b><div><strong>ClinicOS</strong><small>{isAdmin ? "Authority Console" : (isDoctor ? "Doctor Portal" : "Patient Portal")}</small></div></div>
         <nav>
           {nav.map(([id, label]) => (
             <button 
@@ -4060,7 +4771,7 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
               {label}
             </button>
           ))}
-          {!isAdmin && (
+          {session.user.ROLE === "PATIENT" && (
             <button 
               className={page === "notifications" ? "active" : ""} 
               onClick={() => { setPage("notifications"); setMobileMenuOpen(false); }}
@@ -4071,7 +4782,7 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
             </button>
           )}
         </nav>
-        <div className="account"><strong>{session.user.FULL_NAME}</strong><small>{isAdmin ? "Hospital Authority" : "Patient"}</small><Btn variant="ghost" onClick={onLogout}>Sign out</Btn></div>
+        <div className="account"><strong>{session.user.FULL_NAME}</strong><small>{isDoctor ? "Doctor Specialist" : (isAdmin ? "Hospital Authority" : "Patient")}</small><Btn variant="ghost" onClick={onLogout}>Sign out</Btn></div>
       </aside>
       <main className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
         <header className="app-header">

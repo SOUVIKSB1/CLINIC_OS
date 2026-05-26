@@ -371,7 +371,7 @@ router.get('/:id/activity', authenticate, authorize('ADMIN'), async (req, res) =
 
 
 // GET single patient's vitals (Admin/Doctor check)
-router.get('/:id/vitals', authenticate, authorize('ADMIN'), async (req, res) => {
+router.get('/:id/vitals', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) => {
   let conn;
   try {
     conn = await getConnection();
@@ -392,7 +392,7 @@ router.get('/:id/vitals', authenticate, authorize('ADMIN'), async (req, res) => 
 });
 
 // POST log vitals for a patient (Admin/Doctor)
-router.post('/:id/vitals', authenticate, authorize('ADMIN'), async (req, res) => {
+router.post('/:id/vitals', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) => {
   const { blood_pressure, blood_sugar, weight, heart_rate } = req.body;
   if (!blood_sugar || !weight || !heart_rate) {
     return res.status(400).json({ error: 'blood_sugar, weight, and heart_rate are required' });
