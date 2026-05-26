@@ -142,13 +142,18 @@ function Btn({ children, variant = "primary", className = "", ...props }) {
   return <button className={`btn btn-${variant} ${className}`} {...props}>{children}</button>;
 }
 
-function Input({ label, icon, suffix, ...props }) {
+function Input({ label, icon, suffix, className = "", ...props }) {
+  const isSpanAll = className.includes("span-all");
+  const cleanClassName = className.replace("span-all", "").trim();
   return (
-    <label className="field">
+    <label className={`field ${isSpanAll ? "span-all" : ""}`}>
       {label && <span>{label}</span>}
       <div className="input-with-icon-wrapper">
         {icon && <span className="input-field-icon">{icon}</span>}
-        <input className={`${icon ? "has-icon" : ""} ${suffix ? "has-suffix" : ""}`} {...props} />
+        <input 
+          className={`${icon ? "has-icon" : ""} ${suffix ? "has-suffix" : ""} ${cleanClassName}`} 
+          {...props} 
+        />
         {suffix && <span className="input-field-suffix">{suffix}</span>}
       </div>
     </label>
