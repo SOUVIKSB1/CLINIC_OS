@@ -1,6 +1,6 @@
 const sounds = {
   success: new Audio("/sounds/success.mp3"),
-  transaction: new Audio("/sounds/transaction.mp3"),
+  appointment: new Audio("/sounds/appointment.mp3"),
   notification: new Audio("/sounds/notification.mp3"),
 };
 
