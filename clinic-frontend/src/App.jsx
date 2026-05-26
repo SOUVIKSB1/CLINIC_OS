@@ -1814,6 +1814,7 @@ function MyBills({ toast }) {
         transaction_ref: ref
       });
       setPaymentSuccessRef({ ref, amount: payingBill.TOTAL_AMOUNT });
+      playSound("transaction");
       setFormDetails({ cardNumber: "", expiry: "", cvv: "", name: "", upiId: "", bank: "SBI" });
       loadBills();
     } catch (error) {
@@ -2508,13 +2509,33 @@ function AuthorityDoctors({ toast }) {
 
 function AuthorityDepartments({ toast }) {
   const [departments, setDepartments] = useState([]);
+  const [doctors, setDoctors] = useState([]);
   const [form, setForm] = useState({ dept_name: "", location: "", phone: "" });
-  const load = useCallback(() => api.get("/departments").then(setDepartments).catch(error => toast(error.message, "error")), [toast]);
+  const [addingDocDept, setAddingDocDept] = useState(null);
+  const [docForm, setDocForm] = useState(DOCTOR_FORM);
+
+  const load = useCallback(() => {
+    Promise.all([api.get("/departments"), api.get("/doctors")])
+      .then(([depts, docs]) => {
+        setDepartments(depts);
+        setDoctors(docs);
+      })
+      .catch(error => toast(error.message, "error"));
+  }, [toast]);
+
   useEffect(() => {
     let active = true;
-    api.get("/departments").then(rows => { if (active) setDepartments(rows); }).catch(error => toast(error.message, "error"));
+    Promise.all([api.get("/departments"), api.get("/doctors")])
+      .then(([depts, docs]) => {
+        if (active) {
+          setDepartments(depts);
+          setDoctors(docs);
+        }
+      })
+      .catch(error => toast(error.message, "error"));
     return () => { active = false; };
   }, [toast]);
+
   const submit = async (event) => {
     event.preventDefault();
     try {
@@ -2526,6 +2547,7 @@ function AuthorityDepartments({ toast }) {
       toast(error.message, "error");
     }
   };
+
   const remove = async (id) => {
     if (!confirm("Delete this department and its linked doctors?")) return;
     try {
@@ -2536,19 +2558,194 @@ function AuthorityDepartments({ toast }) {
       toast(error.message, "error");
     }
   };
+
+  const submitDoctor = async (event) => {
+    event.preventDefault();
+    try {
+      await api.post("/doctors", {
+        ...docForm,
+        dept_id: addingDocDept.DEPT_ID
+      });
+      toast(`Doctor added to ${addingDocDept.DEPT_NAME}.`);
+      setAddingDocDept(null);
+      setDocForm(DOCTOR_FORM);
+      load();
+    } catch (error) {
+      toast(error.message, "error");
+    }
+  };
+
   return (
     <>
       <PageHeader title="Departments" subtitle="Maintain hospital services patients can browse." />
       <div className="two-columns">
-        <Card><h2>Add department</h2><form className="stack" onSubmit={submit}><Input label="Name *" value={form.dept_name} onChange={event => setForm({ ...form, dept_name: event.target.value })} required /><Input label="Location" value={form.location} onChange={event => setForm({ ...form, location: event.target.value })} /><Input label="Phone" value={form.phone} onChange={event => setForm({ ...form, phone: event.target.value })} /><Btn type="submit">Save department</Btn></form></Card>
-        <Card><h2>Existing departments</h2>{departments.map(dept => <div className="list-row expanded" key={dept.DEPT_ID}><div><strong>{dept.DEPT_NAME}</strong><small>{dept.LOCATION} · {dept.PHONE}</small></div><Btn variant="danger" onClick={() => remove(dept.DEPT_ID)}>Delete</Btn></div>)}</Card>
+        <Card>
+          <h2>Add department</h2>
+          <form className="stack" onSubmit={submit}>
+            <Input label="Name *" value={form.dept_name} onChange={event => setForm({ ...form, dept_name: event.target.value })} required />
+            <Input label="Location" value={form.location} onChange={event => setForm({ ...form, location: event.target.value })} />
+            <Input label="Phone" value={form.phone} onChange={event => setForm({ ...form, phone: event.target.value })} />
+            <Btn type="submit">Save department</Btn>
+          </form>
+        </Card>
+        <Card>
+          <h2>Existing departments</h2>
+          {departments.length === 0 ? (
+            <Empty title="No departments" detail="Create a department to get started." />
+          ) : (
+            departments.map(dept => {
+              const deptDocs = doctors.filter(doc => doc.DEPT_ID === dept.DEPT_ID);
+              return (
+                <div key={dept.DEPT_ID} style={{
+                  background: "rgba(255, 255, 255, 0.02)",
+                  border: "1px solid rgba(255, 255, 255, 0.05)",
+                  borderRadius: "12px",
+                  padding: "16px",
+                  marginBottom: "16px"
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                    <div>
+                      <strong style={{ fontSize: "16px", color: "#fff" }}>{dept.DEPT_NAME}</strong>
+                      <small style={{ display: "block", color: "var(--muted)", marginTop: "4px" }}>
+                        📍 {dept.LOCATION || "No location"} · 📞 {dept.PHONE || "No phone"}
+                      </small>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <Btn variant="primary" style={{ padding: "4px 10px", fontSize: "11px", minHeight: "30px" }} onClick={() => {
+                        setAddingDocDept(dept);
+                        setDocForm({ ...DOCTOR_FORM, dept_id: dept.DEPT_ID });
+                      }}>+ Add Doctor</Btn>
+                      <Btn variant="danger" style={{ padding: "4px 10px", fontSize: "11px", minHeight: "30px" }} onClick={() => remove(dept.DEPT_ID)}>Delete</Btn>
+                    </div>
+                  </div>
+
+                  <div className="department-doctors-list">
+                    <h4 style={{ fontSize: "12px", color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "8px" }}>
+                      Doctors ({deptDocs.length})
+                    </h4>
+                    {deptDocs.length === 0 ? (
+                      <span style={{ fontSize: "12px", color: "var(--muted)", fontStyle: "italic" }}>No doctors registered in this department.</span>
+                    ) : (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                        {deptDocs.map(doc => (
+                          <div key={doc.DOCTOR_ID} style={{
+                            background: "rgba(255, 122, 24, 0.06)",
+                            border: "1px solid rgba(255, 122, 24, 0.15)",
+                            borderRadius: "8px",
+                            padding: "6px 10px",
+                            fontSize: "12px",
+                            color: "#eee",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px"
+                          }}>
+                            <span style={{ fontWeight: "700", color: "var(--primary)" }}>Dr. {doc.FIRST_NAME} {doc.LAST_NAME}</span>
+                            <span style={{ color: "var(--muted)" }}>({doc.SPECIALIZATION || "General"})</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </Card>
       </div>
+
+      {addingDocDept && (
+        <Modal 
+          title={`Add Doctor Specialist to ${addingDocDept.DEPT_NAME}`} 
+          onClose={() => {
+            setAddingDocDept(null);
+            setDocForm(DOCTOR_FORM);
+          }}
+        >
+          <form className="form-grid" onSubmit={submitDoctor}>
+            <Input
+              label="First name *"
+              value={docForm.first_name}
+              onChange={(event) =>
+                setDocForm({ ...docForm, first_name: event.target.value })
+              }
+              required
+            />
+            <Input
+              label="Last name *"
+              value={docForm.last_name}
+              onChange={(event) =>
+                setDocForm({ ...docForm, last_name: event.target.value })
+              }
+              required
+            />
+            <Input
+              label="Department"
+              value={addingDocDept.DEPT_NAME}
+              disabled
+              required
+            />
+            <Input
+              label="Specialization"
+              value={docForm.specialization}
+              onChange={(event) =>
+                setDocForm({ ...docForm, specialization: event.target.value })
+              }
+            />
+            <Input
+              label="Phone"
+              value={docForm.phone}
+              onChange={(event) =>
+                setDocForm({ ...docForm, phone: event.target.value })
+              }
+            />
+            <Input
+              label="Email"
+              type="email"
+              value={docForm.email}
+              onChange={(event) =>
+                setDocForm({ ...docForm, email: event.target.value })
+              }
+            />
+            <Input
+              label="Available days"
+              value={docForm.available_days}
+              onChange={(event) =>
+                setDocForm({ ...docForm, available_days: event.target.value })
+              }
+            />
+            <Input
+              label="Consultation Fees (INR) *"
+              type="number"
+              min="0"
+              value={docForm.fees}
+              onChange={(event) =>
+                setDocForm({ ...docForm, fees: event.target.value })
+              }
+              required
+            />
+            <div className="form-actions" style={{ gridColumn: "1 / -1", display: "flex", gap: "10px", marginTop: "10px" }}>
+              <Btn type="submit">Save doctor</Btn>
+              <Btn
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setAddingDocDept(null);
+                  setDocForm(DOCTOR_FORM);
+                }}
+              >
+                Cancel
+              </Btn>
+            </div>
+          </form>
+        </Modal>
+      )}
     </>
   );
 }
 
 function AppointmentApprovals({ toast }) {
   const [items, setItems] = useState([]);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [prescribeAppt, setPrescribeAppt] = useState(null);
   const [activePrescription, setActivePrescription] = useState(null);
   const [medicines, setMedicines] = useState("");
@@ -2597,10 +2794,73 @@ function AppointmentApprovals({ toast }) {
     }
   };
 
+  // Filter items based on statusFilter
+  const filteredItems = items.filter(item => {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "Pending") return item.STATUS === "Pending";
+    if (statusFilter === "Scheduled") return ["Approved", "Scheduled"].includes(item.STATUS);
+    if (statusFilter === "Completed") return item.STATUS === "Completed";
+    if (statusFilter === "others") return ["Rejected", "Cancelled", "No-Show"].includes(item.STATUS);
+    return true;
+  });
+
+  // Sort items: Pending first, then Scheduled/Approved (earliest first), then others (latest first)
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    if (a.STATUS === "Pending" && b.STATUS !== "Pending") return -1;
+    if (a.STATUS !== "Pending" && b.STATUS === "Pending") return 1;
+
+    const isApprSchedA = ["Approved", "Scheduled"].includes(a.STATUS);
+    const isApprSchedB = ["Approved", "Scheduled"].includes(b.STATUS);
+    if (isApprSchedA && !isApprSchedB) return -1;
+    if (!isApprSchedA && isApprSchedB) return 1;
+
+    const dateTimeA = new Date(`${a.APPT_DATE}T${a.APPT_TIME || "00:00:00"}`);
+    const dateTimeB = new Date(`${b.APPT_DATE}T${b.APPT_TIME || "00:00:00"}`);
+
+    if (a.STATUS === "Pending" || isApprSchedA) {
+      return dateTimeA - dateTimeB;
+    }
+    return dateTimeB - dateTimeA;
+  });
+
   return (
     <>
       <PageHeader title="Appointment Requests" subtitle="Approve patient requests and update completed care." />
-      <Card>{items.length === 0 ? <Empty title="No appointment requests" detail="" /> : items.map(item => (
+      
+      <div className="dept-filter-row" style={{ marginBottom: "20px" }}>
+        <button
+          className={`dept-filter-chip ${statusFilter === "all" ? "active" : ""}`}
+          onClick={() => setStatusFilter("all")}
+        >
+          All ({items.length})
+        </button>
+        <button
+          className={`dept-filter-chip ${statusFilter === "Pending" ? "active" : ""}`}
+          onClick={() => setStatusFilter("Pending")}
+        >
+          Pending ({items.filter(i => i.STATUS === "Pending").length})
+        </button>
+        <button
+          className={`dept-filter-chip ${statusFilter === "Scheduled" ? "active" : ""}`}
+          onClick={() => setStatusFilter("Scheduled")}
+        >
+          Scheduled ({items.filter(i => ["Approved", "Scheduled"].includes(i.STATUS)).length})
+        </button>
+        <button
+          className={`dept-filter-chip ${statusFilter === "Completed" ? "active" : ""}`}
+          onClick={() => setStatusFilter("Completed")}
+        >
+          Completed ({items.filter(i => i.STATUS === "Completed").length})
+        </button>
+        <button
+          className={`dept-filter-chip ${statusFilter === "others" ? "active" : ""}`}
+          onClick={() => setStatusFilter("others")}
+        >
+          Others ({items.filter(i => ["Rejected", "Cancelled", "No-Show"].includes(i.STATUS)).length})
+        </button>
+      </div>
+
+      <Card>{sortedItems.length === 0 ? <Empty title="No appointment requests" detail="Try adjusting your status filter." /> : sortedItems.map(item => (
         <div className="request-row" key={item.APPT_ID}>
           <div><h3>{item.PATIENT_NAME}</h3><p>{item.DOCTOR_NAME} · {item.DEPT_NAME}</p><small>{item.APPT_DATE} · {item.APPT_TIME} · {item.REASON || "No reason provided"}</small></div>
           <div className="row-actions"><Badge status={item.STATUS} />
@@ -2840,7 +3100,7 @@ function Billing({ toast }) {
   const markPaid = async (id) => {
     try {
       await api.put(`/bills/${id}/status`, { payment_status: "Paid" });
-      playSound("success");
+      playSound("transaction");
       toast("Bill recorded as paid.");
       load();
     } catch (error) {
@@ -3614,7 +3874,14 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
     if (!isAdmin) {
       api.get("/notifications")
         .then(rows => {
-          setNotifications(rows);
+          setNotifications(prev => {
+            const prevIds = new Set(prev.map(r => r.id));
+            const newNotifs = rows.filter(r => !prevIds.has(r.id));
+            if (prev.length > 0 && newNotifs.length > 0) {
+              playSound("notification");
+            }
+            return rows;
+          });
           // Auto-cleanup: remove dismissed IDs that no longer exist in the server response
           const currentIds = new Set(rows.map(r => r.id));
           setDismissedIds(prev => {

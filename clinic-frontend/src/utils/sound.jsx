@@ -1,17 +1,25 @@
 import { useEffect } from "react";
 
-const sounds = {
-  success: new Audio("/sounds/success.mp3"),
-  transaction: new Audio("/sounds/transaction.mp3"),
-  notification: new Audio("/sounds/notification.mp3"),
+let soundCache = null;
+
+const getSounds = () => {
+  if (typeof window === "undefined" || !window.Audio) return {};
+  if (!soundCache) {
+    soundCache = {
+      success: new Audio("/sounds/success.mp3"),
+      transaction: new Audio("/sounds/transaction.mp3"),
+      notification: new Audio("/sounds/notification.mp3"),
+    };
+    soundCache.success.volume = 0.65;
+    soundCache.transaction.volume = 0.65;
+    soundCache.notification.volume = 0.45;
+  }
+  return soundCache;
 };
 
-sounds.success.volume = 0.65;
-sounds.transaction.volume = 0.65;
-sounds.notification.volume = 0.45;
-
 export const playSound = (type = "success") => {
-  const sound = sounds[type];
+  const cache = getSounds();
+  const sound = cache[type];
 
   if (!sound) return;
 
@@ -19,7 +27,7 @@ export const playSound = (type = "success") => {
   sound.currentTime = 0;
 
   sound.play().catch((err) => {
-    console.log("Sound blocked:", err);
+    console.log(`Sound play blocked for ${type}:`, err);
   });
 
   document.body.classList.add("success-flash");
