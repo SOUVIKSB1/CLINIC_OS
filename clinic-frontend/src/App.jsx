@@ -3564,7 +3564,7 @@ function PatientNotifications({ toast, setPage, dismissNotification, clearAllNot
                     </Btn>
                   )}
                   {item.type === 'billing' && (
-                    <Btn variant="primary" onClick={() => { playSound("transaction"); handleDismiss(item.id); setPage("bills"); }} style={{ minHeight: '30px', padding: '4px 10px', fontSize: '11px' }}>
+                    <Btn variant="primary" onClick={() => { handleDismiss(item.id); setPage("bills"); }} style={{ minHeight: '30px', padding: '4px 10px', fontSize: '11px' }}>
                       Pay Bill
                     </Btn>
                   )}
