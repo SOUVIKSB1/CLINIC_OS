@@ -356,10 +356,13 @@ function AuthLanding({ onSession, toast, theme, toggleTheme, themeRotating }) {
     setRecommendedDept(null);
     
     setTimeout(() => {
-      const matched = departments.find(d => 
-        d.DEPT_NAME.toLowerCase().includes(symptom.dept.toLowerCase()) ||
-        symptom.dept.toLowerCase().includes(d.DEPT_NAME.toLowerCase())
-      );
+      const matched = departments.find(d => {
+        const dName = d.DEPT_NAME.toLowerCase();
+        const sDept = symptom.dept.toLowerCase();
+        return dName === sDept ||
+               new RegExp(`\\b${sDept}\\b`).test(dName) ||
+               new RegExp(`\\b${dName}\\b`).test(sDept);
+      });
       
       if (matched) {
         const matchedDocs = doctors.filter(doc => doc.DEPT_ID === matched.DEPT_ID);
