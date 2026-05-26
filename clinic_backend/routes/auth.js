@@ -157,13 +157,16 @@ router.get('/me', authenticate, async (req, res) => {
 
 // Admin-only route to create a new ADMIN or DOCTOR account
 router.post('/create-staff', authenticate, authorize('ADMIN'), async (req, res) => {
-  const { full_name, email, password, role, first_name, last_name, specialization, dept_id, phone, available_days, fees } = req.body;
-  if (!full_name?.trim() || !email?.trim() || !password || !role) {
-    return res.status(400).json({ error: 'Full name, email, password and role are required' });
+  const { role, password, doctor_id, full_name, email } = req.body;
+  
+  if (!role || !password) {
+    return res.status(400).json({ error: 'Role and password are required' });
   }
+  
   if (!['ADMIN', 'DOCTOR'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role. Must be ADMIN or DOCTOR' });
   }
+
   if (password.length < 6) {
     return res.status(400).json({ error: 'Password must contain at least 6 characters' });
   }
@@ -173,37 +176,56 @@ router.post('/create-staff', authenticate, authorize('ADMIN'), async (req, res) 
     conn = await getConnection();
     const passwordHash = await bcrypt.hash(password, 10);
 
-    let doctorId = null;
+    let userFullName = "";
+    let userEmail = "";
+
     if (role === 'DOCTOR') {
-      if (!dept_id) {
-        return res.status(400).json({ error: 'Department is required for doctors' });
+      if (!doctor_id) {
+        return res.status(400).json({ error: 'Doctor selection is required' });
       }
       
       const docResult = await conn.execute(
-        `INSERT INTO doctors (first_name, last_name, specialization, dept_id, email, phone, available_days, fees)
-         VALUES (:first_name, :last_name, :specialization, :dept_id, :email, :phone, :available_days, :fees)
-         RETURNING doctor_id INTO :doctor_id`,
-        {
-          first_name: first_name || full_name.split(' ')[0],
-          last_name: last_name || full_name.split(' ').slice(1).join(' ') || 'Doctor',
-          specialization: specialization || null,
-          dept_id: Number(dept_id),
-          email: email.trim().toLowerCase(),
-          phone: phone || null,
-          available_days: available_days || 'Mon-Fri',
-          fees: fees ? Number(fees) : 0,
-          doctor_id: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER }
-        }
+        `SELECT first_name, last_name, email FROM doctors WHERE doctor_id = :doctor_id`,
+        [Number(doctor_id)],
+        { outFormat: oracledb.OUT_FORMAT_OBJECT }
       );
-      doctorId = docResult.outBinds.doctor_id[0];
+      
+      if (docResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Selected doctor not found' });
+      }
+      
+      const doc = docResult.rows[0];
+      if (!doc.EMAIL) {
+        return res.status(400).json({ error: 'Selected doctor does not have an email configured' });
+      }
+      
+      userFullName = `Dr. ${doc.FIRST_NAME} ${doc.LAST_NAME}`;
+      userEmail = doc.EMAIL.trim().toLowerCase();
+    } else {
+      if (!full_name?.trim() || !email?.trim()) {
+        return res.status(400).json({ error: 'Full name and email are required for ADMIN' });
+      }
+      userFullName = full_name.trim();
+      userEmail = email.trim().toLowerCase();
+    }
+
+    // Check if email already exists in users
+    const checkUser = await conn.execute(
+      `SELECT COUNT(*) AS total FROM users WHERE LOWER(email) = LOWER(:email)`,
+      [userEmail],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+
+    if (checkUser.rows[0].TOTAL > 0) {
+      return res.status(409).json({ error: 'A login account with this email already exists' });
     }
 
     await conn.execute(
       `INSERT INTO users (full_name, email, password_hash, role)
        VALUES (:full_name, :email, :password_hash, :role)`,
       {
-        full_name: full_name.trim(),
-        email: email.trim().toLowerCase(),
+        full_name: userFullName,
+        email: userEmail,
         password_hash: passwordHash,
         role: role
       },
@@ -213,8 +235,28 @@ router.post('/create-staff', authenticate, authorize('ADMIN'), async (req, res) 
     res.status(201).json({ message: `${role} account created successfully` });
   } catch (err) {
     if (conn) await conn.rollback();
-    if (err.errorNum === 1)
-      return res.status(409).json({ error: 'An account or doctor with this email already exists' });
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
+// Admin-only route to list registered doctors without a login account
+router.get('/unregistered-doctors', authenticate, authorize('ADMIN'), async (req, res) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    const result = await conn.execute(
+      `SELECT doctor_id, first_name, last_name, email
+       FROM doctors
+       WHERE email IS NOT NULL
+         AND LOWER(email) NOT IN (SELECT LOWER(email) FROM users WHERE email IS NOT NULL)
+       ORDER BY last_name, first_name`,
+      [],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    res.json(result.rows);
+  } catch (err) {
     res.status(500).json({ error: err.message });
   } finally {
     if (conn) await conn.close();
@@ -239,13 +281,13 @@ router.get('/staff', authenticate, authorize('ADMIN'), async (req, res) => {
   }
 });
 
-// Admin-only route to delete an ADMIN or DOCTOR user
+// Admin-only route to delete an ADMIN or DOCTOR user (removes login access only)
 router.delete('/staff/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   let conn;
   try {
     conn = await getConnection();
     
-    // First, find the user's email and role
+    // Find the user's role and email
     const userResult = await conn.execute(
       `SELECT email, role FROM users WHERE user_id = :id`,
       [req.params.id],
@@ -256,26 +298,15 @@ router.delete('/staff/:id', authenticate, authorize('ADMIN'), async (req, res) =
       return res.status(404).json({ error: 'User not found' });
     }
     
-    const user = userResult.rows[0];
-    
-    // Delete from users table
+    // Delete from users table only
     await conn.execute(
       `DELETE FROM users WHERE user_id = :id`,
-      [req.params.id]
+      [req.params.id],
+      { autoCommit: true }
     );
     
-    // If they were a doctor, delete from doctors table too
-    if (user.ROLE === 'DOCTOR') {
-      await conn.execute(
-        `DELETE FROM doctors WHERE LOWER(email) = LOWER(:email)`,
-        [user.EMAIL]
-      );
-    }
-    
-    await conn.commit();
     res.json({ message: 'Staff member account deleted successfully' });
   } catch (err) {
-    if (conn) await conn.rollback();
     res.status(500).json({ error: err.message });
   } finally {
     if (conn) await conn.close();
