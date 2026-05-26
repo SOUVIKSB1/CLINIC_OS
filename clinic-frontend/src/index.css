@@ -194,7 +194,7 @@ p {
   min-width: 0;
 }
 
-.field span {
+.field > span {
   color: #d4d4d8;
   font-size: 13px;
   font-weight: 700;
@@ -2369,7 +2369,7 @@ body.light-theme textarea { background: #f1f5f9; border-color: #cbd5e1; color: #
 body.light-theme input:focus,
 body.light-theme select:focus,
 body.light-theme textarea:focus { border-color: var(--primary); }
-body.light-theme .field span { color: #475569; }
+body.light-theme .field > span { color: #475569; }
 body.light-theme .list-row { border-color: rgba(15,23,42,0.06); }
 body.light-theme .list-row:hover { background: rgba(15,23,42,0.02); }
 body.light-theme .page-header h1 { color: #0f172a; }
