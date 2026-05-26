@@ -2476,36 +2476,124 @@ function AuthorityDoctors({ toast }) {
           </form>
         </Modal>
       )}
-      <div className="directory-grid">
-        {doctors.map((doctor) => (
-          <Card key={doctor.DOCTOR_ID} className="doctor">
-            <strong>
-              Dr. {doctor.FIRST_NAME} {doctor.LAST_NAME}
-            </strong>
+      {!doctors.length ? (
+        <Empty title="No doctors registered" detail="Click 'Add doctor' to register a specialist." />
+      ) : (
+        <div className="departments-doctors-groups">
+          {departments.map((dept) => {
+            const deptDocs = doctors.filter((doc) => doc.DEPT_ID === dept.DEPT_ID);
+            if (deptDocs.length === 0) return null;
+            return (
+              <div key={dept.DEPT_ID} className="dept-group-section" style={{ marginBottom: "32px" }}>
+                <h2 style={{
+                  fontSize: "17px",
+                  fontWeight: "800",
+                  color: "var(--primary)",
+                  borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                  paddingBottom: "8px",
+                  marginBottom: "16px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}>
+                  <span>{dept.DEPT_NAME}</span>
+                  <span style={{ fontSize: "12px", background: "rgba(255, 122, 24, 0.08)", color: "var(--primary)", padding: "2px 8px", borderRadius: "12px", fontWeight: "700" }}>
+                    {deptDocs.length} {deptDocs.length === 1 ? "Doctor" : "Doctors"}
+                  </span>
+                </h2>
+                <div className="directory-grid">
+                  {deptDocs.map((doctor) => (
+                    <Card key={doctor.DOCTOR_ID} className="doctor">
+                      <strong>
+                        Dr. {doctor.FIRST_NAME} {doctor.LAST_NAME}
+                      </strong>
 
-            <p>{doctor.SPECIALIZATION}</p>
+                      <p>{doctor.SPECIALIZATION}</p>
 
-            <small>
-              {doctor.DEPT_NAME} ·{" "}
-              {doctor.AVAILABLE_DAYS || "Availability pending"}
-              {" · "}Fees: {money(doctor.FEES)}
-            </small>
+                      <small>
+                        {doctor.DEPT_NAME} ·{" "}
+                        {doctor.AVAILABLE_DAYS || "Availability pending"}
+                        {" · "}Fees: {money(doctor.FEES)}
+                      </small>
 
-            <div className="inline-buttons">
-              <Btn variant="ghost" onClick={() => editDoctor(doctor)}>
-                Edit
-              </Btn>
+                      <div className="inline-buttons">
+                        <Btn variant="ghost" onClick={() => editDoctor(doctor)}>
+                          Edit
+                        </Btn>
 
-              <Btn
-                variant="danger"
-                onClick={() => remove(doctor.DOCTOR_ID)}
-              >
-                Delete
-              </Btn>
+                        <Btn
+                          variant="danger"
+                          onClick={() => remove(doctor.DOCTOR_ID)}
+                        >
+                          Delete
+                        </Btn>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {doctors.filter((doc) => !departments.some((dept) => dept.DEPT_ID === doc.DEPT_ID)).length > 0 && (
+            <div className="dept-group-section" style={{ marginBottom: "32px" }}>
+              {(() => {
+                const unassignedDocs = doctors.filter((doc) => !departments.some((dept) => dept.DEPT_ID === doc.DEPT_ID));
+                return (
+                  <>
+                    <h2 style={{
+                      fontSize: "17px",
+                      fontWeight: "800",
+                      color: "var(--primary)",
+                      borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                      paddingBottom: "8px",
+                      marginBottom: "16px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center"
+                    }}>
+                      <span>Other / Unassigned Specialists</span>
+                      <span style={{ fontSize: "12px", background: "rgba(255, 122, 24, 0.08)", color: "var(--primary)", padding: "2px 8px", borderRadius: "12px", fontWeight: "700" }}>
+                        {unassignedDocs.length} {unassignedDocs.length === 1 ? "Doctor" : "Doctors"}
+                      </span>
+                    </h2>
+                    <div className="directory-grid">
+                      {unassignedDocs.map((doctor) => (
+                        <Card key={doctor.DOCTOR_ID} className="doctor">
+                          <strong>
+                            Dr. {doctor.FIRST_NAME} {doctor.LAST_NAME}
+                          </strong>
+
+                          <p>{doctor.SPECIALIZATION}</p>
+
+                          <small>
+                            General ·{" "}
+                            {doctor.AVAILABLE_DAYS || "Availability pending"}
+                            {" · "}Fees: {money(doctor.FEES)}
+                          </small>
+
+                          <div className="inline-buttons">
+                            <Btn variant="ghost" onClick={() => editDoctor(doctor)}>
+                              Edit
+                            </Btn>
+
+                            <Btn
+                              variant="danger"
+                              onClick={() => remove(doctor.DOCTOR_ID)}
+                            >
+                              Delete
+                            </Btn>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
-          </Card>
-        ))}
-      </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
