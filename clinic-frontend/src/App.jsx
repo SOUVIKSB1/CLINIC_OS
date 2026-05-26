@@ -4098,6 +4098,11 @@ export default function App() {
   const toast = useCallback((msg, type = "success") => setNotice({ msg, type }), []);
   const closeToast = useCallback(() => setNotice({ msg: "", type: "success" }), []);
 
+  useEffect(() => {
+    // Quietly wake up the Render backend on page load
+    api.get("/health").catch(() => {});
+  }, []);
+
   // Global Theme switcher
   const [theme, setTheme] = useState(() => localStorage.getItem("clinicos_theme") || "dark");
   const [themeRotating, setThemeRotating] = useState(false);
