@@ -195,12 +195,33 @@ router.post('/create-staff', authenticate, authorize('ADMIN'), async (req, res) 
       }
       
       const doc = docResult.rows[0];
-      if (!doc.EMAIL) {
-        return res.status(400).json({ error: 'Selected doctor does not have an email configured' });
-      }
       
+      // Let's determine the email to use
+      let finalEmail = email ? email.trim().toLowerCase() : (doc.EMAIL ? doc.EMAIL.trim().toLowerCase() : "");
+      if (!finalEmail) {
+        return res.status(400).json({ error: 'Selected doctor does not have an email configured and no email was provided' });
+      }
+
+      // Check if new email is already used by another doctor
+      const checkDocEmail = await conn.execute(
+        `SELECT COUNT(*) AS total FROM doctors WHERE LOWER(email) = LOWER(:email) AND doctor_id != :doctor_id`,
+        { email: finalEmail, doctor_id: Number(doctor_id) },
+        { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      );
+      if (checkDocEmail.rows[0].TOTAL > 0) {
+        return res.status(409).json({ error: 'This email is already registered to another doctor' });
+      }
+
+      // If the email changed (or wasn't configured), update the doctors table
+      if (!doc.EMAIL || doc.EMAIL.trim().toLowerCase() !== finalEmail) {
+        await conn.execute(
+          `UPDATE doctors SET email = :email WHERE doctor_id = :doctor_id`,
+          { email: finalEmail, doctor_id: Number(doctor_id) }
+        );
+      }
+
       userFullName = `Dr. ${doc.FIRST_NAME} ${doc.LAST_NAME}`;
-      userEmail = doc.EMAIL.trim().toLowerCase();
+      userEmail = finalEmail;
     } else {
       if (!full_name?.trim() || !email?.trim()) {
         return res.status(400).json({ error: 'Full name and email are required for ADMIN' });
@@ -228,9 +249,11 @@ router.post('/create-staff', authenticate, authorize('ADMIN'), async (req, res) 
         email: userEmail,
         password_hash: passwordHash,
         role: role
-      },
-      { autoCommit: true }
+      }
     );
+
+    // Commit both operations
+    await conn.commit();
 
     res.status(201).json({ message: `${role} account created successfully` });
   } catch (err) {

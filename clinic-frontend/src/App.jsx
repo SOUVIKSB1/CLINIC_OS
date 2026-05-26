@@ -2604,28 +2604,24 @@ function AuthorityDoctors({ toast }) {
 
 function AuthorityStaff({ toast }) {
   const [staff, setStaff] = useState([]);
-  const [departments, setDepartments] = useState([]);
+  const [unregisteredDoctors, setUnregisteredDoctors] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     full_name: "",
     email: "",
     password: "",
     role: "ADMIN",
-    specialization: "",
-    dept_id: "",
-    phone: "",
-    available_days: "Mon-Fri",
-    fees: 0
+    doctor_id: ""
   });
 
   const load = useCallback(() => {
     Promise.all([
       api.get("/auth/staff"),
-      api.get("/departments")
+      api.get("/auth/unregistered-doctors")
     ])
-      .then(([s, d]) => {
+      .then(([s, ud]) => {
         setStaff(s);
-        setDepartments(d);
+        setUnregisteredDoctors(ud);
       })
       .catch(error => toast(error.message, "error"));
   }, [toast]);
@@ -2645,11 +2641,7 @@ function AuthorityStaff({ toast }) {
         email: "",
         password: "",
         role: "ADMIN",
-        specialization: "",
-        dept_id: "",
-        phone: "",
-        available_days: "Mon-Fri",
-        fees: 0
+        doctor_id: ""
       });
       load();
     } catch (error) {
@@ -2658,7 +2650,7 @@ function AuthorityStaff({ toast }) {
   };
 
   const remove = async (id) => {
-    if (!confirm("Are you sure you want to delete this staff member? This will delete their login credentials and associated doctor profile if they are a doctor.")) return;
+    if (!confirm("Are you sure you want to delete this staff member? This will delete their login credentials, but keep their registered doctor profile intact.")) return;
     try {
       await api.del(`/auth/staff/${id}`);
       toast("Staff account deleted.");
@@ -2726,19 +2718,80 @@ function AuthorityStaff({ toast }) {
       {open && (
         <Modal title="Create Staff Account" onClose={() => setOpen(false)}>
           <form className="form-grid" onSubmit={submit}>
-            <Input
-              label="Full Name *"
-              value={form.full_name}
-              onChange={e => setForm({ ...form, full_name: e.target.value })}
+            <Select
+              label="Role *"
+              value={form.role}
+              onChange={e => setForm({
+                ...form,
+                role: e.target.value,
+                full_name: "",
+                email: "",
+                doctor_id: ""
+              })}
               required
-            />
-            <Input
-              label="Email Address *"
-              type="email"
-              value={form.email}
-              onChange={e => setForm({ ...form, email: e.target.value })}
-              required
-            />
+            >
+              <option value="ADMIN">ADMIN</option>
+              <option value="DOCTOR">DOCTOR</option>
+            </Select>
+
+            {form.role === "ADMIN" ? (
+              <>
+                <Input
+                  label="Full Name *"
+                  value={form.full_name}
+                  onChange={e => setForm({ ...form, full_name: e.target.value })}
+                  required
+                />
+                <Input
+                  label="Email Address *"
+                  type="email"
+                  value={form.email}
+                  onChange={e => setForm({ ...form, email: e.target.value })}
+                  required
+                />
+              </>
+            ) : (
+              <>
+                <Select
+                  label="Select Doctor *"
+                  value={form.doctor_id}
+                  onChange={e => {
+                    const docId = e.target.value;
+                    const selectedDoc = unregisteredDoctors.find(d => String(d.DOCTOR_ID) === String(docId));
+                    setForm({
+                      ...form,
+                      doctor_id: docId,
+                      email: selectedDoc ? (selectedDoc.EMAIL || "") : ""
+                    });
+                  }}
+                  required
+                >
+                  <option value="">Select a registered doctor</option>
+                  {unregisteredDoctors.map(d => (
+                    <option key={d.DOCTOR_ID} value={d.DOCTOR_ID}>
+                      Dr. {d.FIRST_NAME} {d.LAST_NAME}
+                    </option>
+                  ))}
+                </Select>
+
+                {form.doctor_id && (
+                  <Input
+                    label="Email Address *"
+                    type="email"
+                    value={form.email}
+                    onChange={e => setForm({ ...form, email: e.target.value })}
+                    required
+                  />
+                )}
+
+                {unregisteredDoctors.length === 0 && (
+                  <div className="span-all" style={{ color: "var(--muted)", fontSize: 13, marginTop: 8 }}>
+                    ⚠️ No unregistered doctor profiles available in the directory. Please add a doctor in the Department Manager first.
+                  </div>
+                )}
+              </>
+            )}
+
             <Input
               label="Password *"
               type="password"
@@ -2747,63 +2800,9 @@ function AuthorityStaff({ toast }) {
               onChange={e => setForm({ ...form, password: e.target.value })}
               required
             />
-            <Select
-              label="Role *"
-              value={form.role}
-              onChange={e => setForm({ ...form, role: e.target.value })}
-              required
-            >
-              <option value="ADMIN">ADMIN</option>
-              <option value="DOCTOR">DOCTOR</option>
-            </Select>
-
-            {form.role === "DOCTOR" && (
-              <>
-                <div className="span-all" style={{ borderTop: "1px solid var(--border)", margin: "10px 0", paddingTop: "10px" }}>
-                  <h4 style={{ margin: 0, color: "var(--muted)" }}>Doctor Profile Information</h4>
-                </div>
-                <Input
-                  label="Specialization *"
-                  placeholder="e.g. Cardiologist"
-                  value={form.specialization}
-                  onChange={e => setForm({ ...form, specialization: e.target.value })}
-                  required={form.role === "DOCTOR"}
-                />
-                <Select
-                  label="Department *"
-                  value={form.dept_id}
-                  onChange={e => setForm({ ...form, dept_id: e.target.value })}
-                  required={form.role === "DOCTOR"}
-                >
-                  <option value="">Select Department</option>
-                  {departments.map(d => (
-                    <option key={d.DEPT_ID} value={d.DEPT_ID}>{d.DEPT_NAME}</option>
-                  ))}
-                </Select>
-                <Input
-                  label="Phone Number"
-                  value={form.phone}
-                  onChange={e => setForm({ ...form, phone: e.target.value })}
-                />
-                <Input
-                  label="Available Days"
-                  placeholder="e.g. Mon-Fri"
-                  value={form.available_days}
-                  onChange={e => setForm({ ...form, available_days: e.target.value })}
-                />
-                <Input
-                  label="Fees *"
-                  type="number"
-                  min="0"
-                  value={form.fees}
-                  onChange={e => setForm({ ...form, fees: Number(e.target.value) })}
-                  required={form.role === "DOCTOR"}
-                />
-              </>
-            )}
 
             <div className="span-all" style={{ marginTop: 16 }}>
-              <Btn type="submit">Create Account</Btn>
+              <Btn type="submit" disabled={form.role === "DOCTOR" && !form.doctor_id}>Create Account</Btn>
             </div>
           </form>
         </Modal>
