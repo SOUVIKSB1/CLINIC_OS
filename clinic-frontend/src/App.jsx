@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { playSound } from "./utils/sound";
 
@@ -2881,7 +2881,7 @@ function DoctorDashboard({ user, setPage, toast }) {
   );
 }
 
-function DoctorAppointments({ user, toast }) {
+function DoctorAppointments({ toast }) {
   const [appointments, setAppointments] = useState([]);
   const [prescribeAppt, setPrescribeAppt] = useState(null);
   const [viewPrescAppt, setViewPrescAppt] = useState(null);
@@ -3014,7 +3014,7 @@ function DoctorAppointments({ user, toast }) {
   );
 }
 
-function DoctorPatients({ user, toast }) {
+function DoctorPatients({ toast }) {
   const [patients, setPatients] = useState([]);
   const [viewingPatient, setViewingPatient] = useState(null);
   const [patientVitals, setPatientVitals] = useState([]);
@@ -3107,7 +3107,7 @@ function DoctorPatients({ user, toast }) {
   );
 }
 
-function DoctorSharedReports({ user, toast }) {
+function DoctorSharedReports({ toast }) {
   const [reports, setReports] = useState([]);
 
   useEffect(() => {
@@ -4546,7 +4546,6 @@ const DOCTOR_NAV = [
 function PatientNotifications({ toast, setPage, dismissNotification, clearAllNotifications }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     api.get("/notifications")
@@ -4727,9 +4726,9 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
   } else if (isDoctor) {
     const pages = {
       dashboard: <DoctorDashboard user={session.user} setPage={setPage} toast={toast} />,
-      appointments: <DoctorAppointments user={session.user} toast={toast} />,
-      patients: <DoctorPatients user={session.user} toast={toast} />,
-      "shared-reports": <DoctorSharedReports user={session.user} toast={toast} />,
+      appointments: <DoctorAppointments toast={toast} />,
+      patients: <DoctorPatients toast={toast} />,
+      "shared-reports": <DoctorSharedReports toast={toast} />,
     };
     content = pages[page];
   } else {
