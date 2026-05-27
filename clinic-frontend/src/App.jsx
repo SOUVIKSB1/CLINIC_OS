@@ -3906,6 +3906,10 @@ function AuthorityTests({ toast }) {
   const [successMsg, setSuccessMsg] = useState("");
   const [addingTestState, setAddingTestState] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [editingTest, setEditingTest] = useState(null);
+  const [editForm, setEditForm] = useState({ test_name: "", description: "", price: "", preparation: "" });
+  const [editingTestState, setEditingTestState] = useState(false);
+  const [showAllCatalog, setShowAllCatalog] = useState(false);
 
   const TEMPLATES = {
     cbc: "HEMOGLOBIN: 14.1 g/dL (Normal: 13.5 - 17.5)\nRBC COUNT: 4.8 Million/mcL (Normal: 4.3 - 5.9)\nWBC COUNT: 6,800 /mcL (Normal: 4,500 - 11,000)\nPLATELETS: 245,000 /mcL (Normal: 150,000 - 450,000)\nHEMATOCRIT: 42% (Normal: 41% - 50%)\nIMPRESSION: Hemogram parameters are within normal reference bounds.",
@@ -3944,6 +3948,33 @@ function AuthorityTests({ toast }) {
       toast(error.message, "error");
     } finally {
       setAddingTestState(false);
+    }
+  };
+
+  const handleEditTest = (test) => {
+    setEditingTest(test);
+    setEditForm({
+      test_name: test.TEST_NAME || "",
+      description: test.DESCRIPTION || "",
+      price: test.PRICE !== undefined ? String(test.PRICE) : "",
+      preparation: test.PREPARATION || ""
+    });
+  };
+
+  const submitEditTest = async (event) => {
+    event.preventDefault();
+    if (!editingTest) return;
+    setEditingTestState(true);
+    try {
+      await api.put(`/tests/catalog/${editingTest.TEST_ID}`, editForm);
+      toast("Lab test updated successfully.");
+      setEditingTest(null);
+      setEditForm({ test_name: "", description: "", price: "", preparation: "" });
+      load();
+    } catch (error) {
+      toast(error.message, "error");
+    } finally {
+      setEditingTestState(false);
     }
   };
   const mark = async (id, status) => {
@@ -3989,6 +4020,7 @@ function AuthorityTests({ toast }) {
   });
 
   const requestsToShow = showAll ? sortedRequests : sortedRequests.slice(0, 10);
+  const catalogToShow = showAllCatalog ? catalog : catalog.slice(0, 10);
 
   return (
     <>
@@ -4024,6 +4056,47 @@ function AuthorityTests({ toast }) {
             )}
           </div>
           {requestsToShow.length === 0 ? <Empty title="No test requests" detail="" /> : requestsToShow.map(item => <div className="list-row expanded" key={item.BOOKING_ID}><div><strong>{item.PATIENT_NAME} · {item.TEST_NAME}</strong><small>{item.BOOKING_DATE} · {money(item.PRICE)}</small></div><div className="row-actions"><Badge status={item.STATUS} />{item.STATUS === "Pending" && <><Btn variant="success" onClick={() => mark(item.BOOKING_ID, "Approved")}>Approve</Btn><Btn variant="danger" onClick={() => mark(item.BOOKING_ID, "Rejected")}>Reject</Btn></>}{item.STATUS === "Approved" && <Btn variant="primary" onClick={() => setCompletingTest(item)}>Complete & Report</Btn>}</div></div>)}
+        </Card>
+      </div>
+
+      <div style={{ marginTop: "24px" }}>
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+            <h2 style={{ margin: 0, fontSize: "16px" }}>Lab Test Catalog</h2>
+            {catalog.length > 10 && (
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
+                <input 
+                  type="checkbox" 
+                  checked={showAllCatalog} 
+                  onChange={e => setShowAllCatalog(e.target.checked)}
+                  style={{ cursor: "pointer" }}
+                />
+                Show All ({catalog.length})
+              </label>
+            )}
+          </div>
+          {catalogToShow.length === 0 ? (
+            <Empty title="No tests in catalog" detail="Add a test above to get started." />
+          ) : (
+            catalogToShow.map(item => (
+              <div className="list-row expanded" key={item.TEST_ID}>
+                <div>
+                  <strong>{item.TEST_NAME}</strong>
+                  <small>
+                    {money(item.PRICE)} {item.PREPARATION ? `· Preparation: ${item.PREPARATION}` : ""}
+                  </small>
+                  {item.DESCRIPTION && (
+                    <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "var(--muted)", lineHeight: "1.4" }}>
+                      {item.DESCRIPTION}
+                    </p>
+                  )}
+                </div>
+                <div className="row-actions">
+                  <Btn variant="primary" onClick={() => handleEditTest(item)}>Edit</Btn>
+                </div>
+              </div>
+            ))
+          )}
         </Card>
       </div>
 
@@ -4073,6 +4146,26 @@ function AuthorityTests({ toast }) {
               </div>
             </form>
           )}
+        </Modal>
+      )}
+
+      {editingTest && (
+        <Modal title="Edit Test Details" onClose={() => { setEditingTest(null); setEditForm({ test_name: "", description: "", price: "", preparation: "" }); }}>
+          <form className="stack" onSubmit={submitEditTest}>
+            <Input label="Test name *" value={editForm.test_name} onChange={event => setEditForm({ ...editForm, test_name: event.target.value })} required />
+            <Input label="Price (₹) *" type="number" min="0" value={editForm.price} onChange={event => setEditForm({ ...editForm, price: event.target.value })} required />
+            <Input label="Preparation" value={editForm.preparation} onChange={event => setEditForm({ ...editForm, preparation: event.target.value })} />
+            <Textarea label="Description" value={editForm.description} onChange={event => setEditForm({ ...editForm, description: event.target.value })} />
+            <div className="form-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+              <Btn type="submit" disabled={editingTestState}>
+                {editingTestState && <span className="spinner"></span>}
+                {editingTestState ? "Saving..." : "Save Changes"}
+              </Btn>
+              <Btn type="button" variant="ghost" onClick={() => { setEditingTest(null); setEditForm({ test_name: "", description: "", price: "", preparation: "" }); }}>
+                Cancel
+              </Btn>
+            </div>
+          </form>
         </Modal>
       )}
     </>

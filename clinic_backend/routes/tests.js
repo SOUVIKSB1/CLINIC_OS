@@ -45,6 +45,31 @@ router.post('/catalog', authenticate, authorize('ADMIN'), async (req, res) => {
   }
 });
 
+router.put('/catalog/:id', authenticate, authorize('ADMIN'), async (req, res) => {
+  const { test_name, description, price, preparation } = req.body;
+  if (!test_name?.trim() || price === undefined || Number(price) < 0)
+    return res.status(400).json({ error: 'Test name and a valid price are required' });
+  let conn;
+  try {
+    conn = await getConnection();
+    const result = await conn.execute(
+      `UPDATE lab_tests
+       SET test_name = :test_name, description = :description, price = :price, preparation = :preparation
+       WHERE test_id = :id`,
+      { test_name, description, price: Number(price), preparation, id: Number(req.params.id) },
+      { autoCommit: true }
+    );
+    if (result.rowsAffected === 0)
+      return res.status(404).json({ error: 'Lab test not found' });
+    res.json({ message: 'Lab test updated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
+
 router.get('/requests', authenticate, authorize('ADMIN'), async (req, res) => {
   let conn;
   try {
