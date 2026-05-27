@@ -1469,15 +1469,16 @@ function MyAppointments({ toast }) {
   };
 
   const sortedItems = [...items].sort((a, b) => {
-    const isPendingA = a.STATUS === "Pending";
-    const isPendingB = b.STATUS === "Pending";
-    
-    if (isPendingA && !isPendingB) return -1;
-    if (!isPendingA && isPendingB) return 1;
-    
+    const statusOrder = { "Pending": 1, "Approved": 2, "Scheduled": 2 };
+    const getOrder = (item) => statusOrder[item.STATUS] || 3;
+    const orderA = getOrder(a);
+    const orderB = getOrder(b);
+    if (orderA !== orderB) return orderA - orderB;
+
     const dateA = new Date(a.APPT_DATE || 0);
     const dateB = new Date(b.APPT_DATE || 0);
-    return dateB - dateA;
+    if (dateA - dateB !== 0) return dateB - dateA;
+    return (b.APPT_TIME || "").localeCompare(a.APPT_TIME || "");
   });
 
   const itemsToShow = showAll ? sortedItems : sortedItems.slice(0, 10);
@@ -1650,7 +1651,19 @@ function PatientTests({ toast, user }) {
     }
   };
 
-  const bookingsToShow = showAllBookings ? bookings : bookings.slice(0, 10);
+  const sortedBookings = [...bookings].sort((a, b) => {
+    const statusOrder = { "Pending": 1, "Approved": 2 };
+    const getOrder = (item) => statusOrder[item.STATUS] || 3;
+    const orderA = getOrder(a);
+    const orderB = getOrder(b);
+    if (orderA !== orderB) return orderA - orderB;
+
+    const dateA = new Date(a.BOOKING_DATE || 0);
+    const dateB = new Date(b.BOOKING_DATE || 0);
+    return dateB - dateA;
+  });
+
+  const bookingsToShow = showAllBookings ? sortedBookings : sortedBookings.slice(0, 10);
 
   return (
     <>
@@ -1878,7 +1891,17 @@ function MyBills({ toast }) {
     }
   };
 
-  const billsToShow = showAllBills ? bills : bills.slice(0, 10);
+  const sortedBills = [...bills].sort((a, b) => {
+    const orderA = a.PAYMENT_STATUS === "Pending" ? 1 : 2;
+    const orderB = b.PAYMENT_STATUS === "Pending" ? 1 : 2;
+    if (orderA !== orderB) return orderA - orderB;
+
+    const dateA = new Date(a.CREATED_AT || 0);
+    const dateB = new Date(b.CREATED_AT || 0);
+    return dateB - dateA;
+  });
+
+  const billsToShow = showAllBills ? sortedBills : sortedBills.slice(0, 10);
 
   return (
     <>
@@ -2236,6 +2259,13 @@ function AuthorityPatients({ toast }) {
   };
 
   const filtered = patients.filter(patient => `${patient.FIRST_NAME} ${patient.LAST_NAME} ${patient.EMAIL} ${patient.PHONE}`.toLowerCase().includes(search.toLowerCase()));
+  
+  const sortedPatients = [...filtered].sort((a, b) => {
+    const nameA = `${a.FIRST_NAME || ""} ${a.LAST_NAME || ""}`.trim();
+    const nameB = `${b.FIRST_NAME || ""} ${b.LAST_NAME || ""}`.trim();
+    return nameA.localeCompare(nameB);
+  });
+
   return (
     <>
       <PageHeader title="Patient Records" subtitle="Maintain registered patient contact and clinical information." />
@@ -2251,7 +2281,7 @@ function AuthorityPatients({ toast }) {
       <Card>
         <input className="search" placeholder="Search patients..." value={search} onChange={event => setSearch(event.target.value)} />
         <div className="table-wrap"><table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Blood group</th><th /></tr></thead>
-          <tbody>{filtered.map(patient => (
+          <tbody>{sortedPatients.map(patient => (
             <tr key={patient.PATIENT_ID}>
               <td>{patient.FIRST_NAME} {patient.LAST_NAME}</td>
               <td>{patient.PHONE}</td>
@@ -3017,7 +3047,24 @@ function DoctorAppointments({ toast }) {
     }
   };
 
-  const appointmentsToShow = showAll ? appointments : appointments.slice(0, 10);
+  const sortedAppts = [...appointments].sort((a, b) => {
+    const statusOrder = { "Pending": 1, "Approved": 2, "Scheduled": 2 };
+    const getOrder = (item) => statusOrder[item.STATUS] || 3;
+    const orderA = getOrder(a);
+    const orderB = getOrder(b);
+    if (orderA !== orderB) return orderA - orderB;
+
+    if (orderA === 3) {
+      return (a.PATIENT_NAME || "").localeCompare(b.PATIENT_NAME || "");
+    } else {
+      const dateA = new Date(a.APPT_DATE || 0);
+      const dateB = new Date(b.APPT_DATE || 0);
+      if (dateA - dateB !== 0) return dateB - dateA;
+      return (b.APPT_TIME || "").localeCompare(a.APPT_TIME || "");
+    }
+  });
+
+  const appointmentsToShow = showAll ? sortedAppts : sortedAppts.slice(0, 10);
 
   return (
     <>
@@ -3226,6 +3273,12 @@ function DoctorPatients({ toast }) {
   const [editingPresc, setEditingPresc] = useState(false);
   const [form, setForm] = useState({ medicines: "", instructions: "", duration: "7" });
 
+  const sortedPatients = [...patients].sort((a, b) => {
+    const nameA = `${a.FIRST_NAME || ""} ${a.LAST_NAME || ""}`.trim();
+    const nameB = `${b.FIRST_NAME || ""} ${b.LAST_NAME || ""}`.trim();
+    return nameA.localeCompare(nameB);
+  });
+
   useEffect(() => {
     api.get("/doctors/me/patients")
       .then(setPatients)
@@ -3268,7 +3321,7 @@ function DoctorPatients({ toast }) {
           {patients.length === 0 ? (
             <Empty title="No patients found" detail="Patients who book appointments with you will appear here." />
           ) : (
-            patients.map(p => (
+            sortedPatients.map(p => (
               <div
                 className={`list-row clickable ${viewingPatient?.PATIENT_ID === p.PATIENT_ID ? "active" : ""}`}
                 key={p.PATIENT_ID}
@@ -3441,7 +3494,16 @@ function DoctorSharedReports({ toast }) {
       .catch(err => toast(err.message, "error"));
   }, [toast]);
 
-  const reportsToShow = showAll ? reports : reports.slice(0, 10);
+  const sortedReports = [...reports].sort((a, b) => {
+    const nameCompare = (a.PATIENT_NAME || "").localeCompare(b.PATIENT_NAME || "");
+    if (nameCompare !== 0) return nameCompare;
+
+    const dateA = new Date(a.SHARED_AT || 0);
+    const dateB = new Date(b.SHARED_AT || 0);
+    return dateB - dateA;
+  });
+
+  const reportsToShow = showAll ? sortedReports : sortedReports.slice(0, 10);
 
   return (
     <>
@@ -3789,21 +3851,19 @@ function AppointmentApprovals({ toast }) {
 
   // Sort items: Pending first, then Scheduled/Approved (earliest first), then others (latest first)
   const sortedItems = [...filteredItems].sort((a, b) => {
-    if (a.STATUS === "Pending" && b.STATUS !== "Pending") return -1;
-    if (a.STATUS !== "Pending" && b.STATUS === "Pending") return 1;
+    const statusOrder = { "Pending": 1, "Approved": 2, "Scheduled": 2 };
+    const getOrder = (item) => statusOrder[item.STATUS] || 3;
+    const orderA = getOrder(a);
+    const orderB = getOrder(b);
+    if (orderA !== orderB) return orderA - orderB;
 
-    const isApprSchedA = ["Approved", "Scheduled"].includes(a.STATUS);
-    const isApprSchedB = ["Approved", "Scheduled"].includes(b.STATUS);
-    if (isApprSchedA && !isApprSchedB) return -1;
-    if (!isApprSchedA && isApprSchedB) return 1;
-
-    const dateTimeA = new Date(`${a.APPT_DATE}T${a.APPT_TIME || "00:00:00"}`);
-    const dateTimeB = new Date(`${b.APPT_DATE}T${b.APPT_TIME || "00:00:00"}`);
-
-    if (a.STATUS === "Pending" || isApprSchedA) {
-      return dateTimeA - dateTimeB;
+    if (orderA === 3) {
+      return (a.PATIENT_NAME || "").localeCompare(b.PATIENT_NAME || "");
+    } else {
+      const dateA = new Date(`${a.APPT_DATE}T${a.APPT_TIME || "00:00:00"}`);
+      const dateB = new Date(`${b.APPT_DATE}T${b.APPT_TIME || "00:00:00"}`);
+      return dateB - dateA;
     }
-    return dateTimeB - dateTimeA;
   });
 
   const itemsToShow = showAll ? sortedItems : sortedItems.slice(0, 10);
@@ -4065,20 +4125,19 @@ function AuthorityTests({ toast }) {
   };
 
   const sortedRequests = [...requests].sort((a, b) => {
-    const isActionA = ["Pending", "Approved"].includes(a.STATUS);
-    const isActionB = ["Pending", "Approved"].includes(b.STATUS);
-    
-    if (isActionA && !isActionB) return -1;
-    if (!isActionA && isActionB) return 1;
-    
-    // Within actionable items, sort Pending first, then Approved
-    if (a.STATUS === "Pending" && b.STATUS === "Approved") return -1;
-    if (a.STATUS === "Approved" && b.STATUS === "Pending") return 1;
+    const statusOrder = { "Pending": 1, "Approved": 2 };
+    const getOrder = (item) => statusOrder[item.STATUS] || 3;
+    const orderA = getOrder(a);
+    const orderB = getOrder(b);
+    if (orderA !== orderB) return orderA - orderB;
 
-    // Within non-actionable or same status items, sort by booking date descending
-    const dateA = new Date(a.BOOKING_DATE || 0);
-    const dateB = new Date(b.BOOKING_DATE || 0);
-    return dateB - dateA;
+    if (orderA === 3) {
+      return (a.PATIENT_NAME || "").localeCompare(b.PATIENT_NAME || "");
+    } else {
+      const dateA = new Date(a.BOOKING_DATE || 0);
+      const dateB = new Date(b.BOOKING_DATE || 0);
+      return dateB - dateA;
+    }
   });
 
   const requestsToShow = showAll ? sortedRequests : sortedRequests.slice(0, 10);
@@ -4322,9 +4381,17 @@ function Billing({ toast }) {
   };
 
   const sortedBills = [...bills].sort((a, b) => {
-    if (a.PAYMENT_STATUS === "Pending" && b.PAYMENT_STATUS !== "Pending") return -1;
-    if (a.PAYMENT_STATUS !== "Pending" && b.PAYMENT_STATUS === "Pending") return 1;
-    return 0;
+    const orderA = a.PAYMENT_STATUS === "Pending" ? 1 : 2;
+    const orderB = b.PAYMENT_STATUS === "Pending" ? 1 : 2;
+    if (orderA !== orderB) return orderA - orderB;
+
+    if (orderA === 2) {
+      return (a.PATIENT_NAME || "").localeCompare(b.PATIENT_NAME || "");
+    } else {
+      const dateA = new Date(a.CREATED_AT || 0);
+      const dateB = new Date(b.CREATED_AT || 0);
+      return dateB - dateA;
+    }
   });
 
   const billsToShow = showAll ? sortedBills : sortedBills.slice(0, 10);
