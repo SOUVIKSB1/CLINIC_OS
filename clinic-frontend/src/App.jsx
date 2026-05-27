@@ -4399,7 +4399,21 @@ function Billing({ toast }) {
       <PageHeader title="Billing" subtitle="Issue patient bills and maintain payment status." />
       <div className="two-columns">
         <Card><h2>Send a bill</h2><form className="stack" onSubmit={submit}>
-          <Select label="Patient *" value={form.patient_id} onChange={event => setForm({ ...form, patient_id: event.target.value })} required><option value="">Select patient</option>{patients.map(patient => <option value={patient.PATIENT_ID} key={patient.PATIENT_ID}>{patient.FIRST_NAME} {patient.LAST_NAME}</option>)}</Select>
+          <Select label="Patient *" value={form.patient_id} onChange={event => setForm({ ...form, patient_id: event.target.value })} required>
+            <option value="">Select patient</option>
+            {[...patients]
+              .sort((a, b) => {
+                const nameA = `${a.FIRST_NAME || ""} ${a.LAST_NAME || ""}`.trim();
+                const nameB = `${b.FIRST_NAME || ""} ${b.LAST_NAME || ""}`.trim();
+                return nameA.localeCompare(nameB);
+              })
+              .map(patient => (
+                <option value={patient.PATIENT_ID} key={patient.PATIENT_ID}>
+                  {patient.FIRST_NAME} {patient.LAST_NAME}
+                </option>
+              ))
+            }
+          </Select>
           <Input label="Description *" value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} required />
           <Input label="Amount *" type="number" min="1" value={form.total_amount} onChange={event => setForm({ ...form, total_amount: event.target.value })} required />
           <Input label="Due date" type="date" value={form.due_date} onChange={event => setForm({ ...form, due_date: event.target.value })} />
