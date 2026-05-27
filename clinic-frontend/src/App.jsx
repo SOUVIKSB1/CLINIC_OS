@@ -3972,9 +3972,20 @@ function AuthorityTests({ toast }) {
   };
 
   const sortedRequests = [...requests].sort((a, b) => {
-    if (a.STATUS === "Pending" && b.STATUS !== "Pending") return -1;
-    if (a.STATUS !== "Pending" && b.STATUS === "Pending") return 1;
-    return 0;
+    const isActionA = ["Pending", "Approved"].includes(a.STATUS);
+    const isActionB = ["Pending", "Approved"].includes(b.STATUS);
+    
+    if (isActionA && !isActionB) return -1;
+    if (!isActionA && isActionB) return 1;
+    
+    // Within actionable items, sort Pending first, then Approved
+    if (a.STATUS === "Pending" && b.STATUS === "Approved") return -1;
+    if (a.STATUS === "Approved" && b.STATUS === "Pending") return 1;
+
+    // Within non-actionable or same status items, sort by booking date descending
+    const dateA = new Date(a.BOOKING_DATE || 0);
+    const dateB = new Date(b.BOOKING_DATE || 0);
+    return dateB - dateA;
   });
 
   const requestsToShow = showAll ? sortedRequests : sortedRequests.slice(0, 10);
