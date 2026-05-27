@@ -1,7 +1,0 @@
-WALLET_LOCATION = 
-  (SOURCE = 
-    (METHOD = file) 
-    (METHOD_DATA = 
-      (DIRECTORY=/Users/souvik/oracle_wallet)
-    )
-  )
