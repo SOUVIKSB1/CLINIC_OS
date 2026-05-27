@@ -1441,6 +1441,7 @@ function PatientBooking({ toast, setPage }) {
 function MyAppointments({ toast }) {
   const [items, setItems] = useState([]);
   const [activePrescription, setActivePrescription] = useState(null);
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(() => api.get("/appointments/mine").then(setItems).catch(error => toast(error.message, "error")), [toast]);
   useEffect(() => {
@@ -1467,12 +1468,28 @@ function MyAppointments({ toast }) {
     }
   };
 
+  const itemsToShow = showAll ? items : items.slice(0, 10);
+
   return (
     <>
       <PageHeader title="My Appointments" subtitle="View approval status and cancel an open request when plans change." />
       <Card>
-        {items.length === 0 ? <Empty title="No appointments" detail="Request an appointment to see it here." /> :
-          items.map(item => (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+          <h2 style={{ margin: 0, fontSize: "16px" }}>Appointments History</h2>
+          {items.length > 10 && (
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
+              <input 
+                type="checkbox" 
+                checked={showAll} 
+                onChange={e => setShowAll(e.target.checked)}
+                style={{ cursor: "pointer" }}
+              />
+              Show All ({items.length})
+            </label>
+          )}
+        </div>
+        {itemsToShow.length === 0 ? <Empty title="No appointments" detail="Request an appointment to see it here." /> :
+          itemsToShow.map(item => (
             <div className="request-row" key={item.APPT_ID}>
               <div><h3>{item.DOCTOR_NAME}</h3><p>{item.SPECIALIZATION} · {item.DEPT_NAME}</p><small>{item.APPT_DATE} · {item.APPT_TIME}{item.REASON && ` · ${item.REASON}`}</small></div>
               <div className="row-actions">
@@ -2926,6 +2943,7 @@ function DoctorAppointments({ toast }) {
   const [prescription, setPrescription] = useState(null);
   const [form, setForm] = useState({ medicines: "", instructions: "" });
   const [editingPresc, setEditingPresc] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const handleUpdatePrescription = async (e) => {
     e.preventDefault();
@@ -2985,15 +3003,31 @@ function DoctorAppointments({ toast }) {
     }
   };
 
+  const appointmentsToShow = showAll ? appointments : appointments.slice(0, 10);
+
   return (
     <>
       <PageHeader title="My Appointments" subtitle="Manage patient consults and prescriptions." />
       
       <Card>
-        {appointments.length === 0 ? (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+          <h2 style={{ margin: 0, fontSize: "16px" }}>Appointments</h2>
+          {appointments.length > 10 && (
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
+              <input 
+                type="checkbox" 
+                checked={showAll} 
+                onChange={e => setShowAll(e.target.checked)}
+                style={{ cursor: "pointer" }}
+              />
+              Show All ({appointments.length})
+            </label>
+          )}
+        </div>
+        {appointmentsToShow.length === 0 ? (
           <Empty title="No appointments scheduled" detail="" />
         ) : (
-          appointments.map(appt => (
+          appointmentsToShow.map(appt => (
             <div className="list-row expanded" key={appt.APPT_ID}>
               <div>
                 <strong>{appt.PATIENT_NAME}</strong>
@@ -3349,6 +3383,7 @@ function DoctorPatients({ toast }) {
 
 function DoctorSharedReports({ toast }) {
   const [reports, setReports] = useState([]);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     api.get("/doctors/me/shared-reports")
@@ -3356,15 +3391,31 @@ function DoctorSharedReports({ toast }) {
       .catch(err => toast(err.message, "error"));
   }, [toast]);
 
+  const reportsToShow = showAll ? reports : reports.slice(0, 10);
+
   return (
     <>
       <PageHeader title="Shared Diagnostic Reports" subtitle="View laboratory test results shared by patients." />
       
       <Card>
-        {reports.length === 0 ? (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+          <h2 style={{ margin: 0, fontSize: "16px" }}>Shared Reports</h2>
+          {reports.length > 10 && (
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
+              <input 
+                type="checkbox" 
+                checked={showAll} 
+                onChange={e => setShowAll(e.target.checked)}
+                style={{ cursor: "pointer" }}
+              />
+              Show All ({reports.length})
+            </label>
+          )}
+        </div>
+        {reportsToShow.length === 0 ? (
           <Empty title="No shared reports" detail="Diagnostic reports shared with your email will appear here." />
         ) : (
-          reports.map(rep => (
+          reportsToShow.map(rep => (
             <div className="list-row expanded" key={rep.SHARE_ID}>
               <div>
                 <strong>{rep.TEST_NAME}</strong>
@@ -3631,6 +3682,7 @@ function AppointmentApprovals({ toast }) {
   const [activePrescription, setActivePrescription] = useState(null);
   const [medicines, setMedicines] = useState("");
   const [instructions, setInstructions] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(() => api.get("/appointments").then(setItems).catch(error => toast(error.message, "error")), [toast]);
   useEffect(() => {
@@ -3704,6 +3756,8 @@ function AppointmentApprovals({ toast }) {
     return dateTimeB - dateTimeA;
   });
 
+  const itemsToShow = showAll ? sortedItems : sortedItems.slice(0, 10);
+
   return (
     <>
       <PageHeader title="Appointment Requests" subtitle="Approve patient requests and update completed care." />
@@ -3741,22 +3795,38 @@ function AppointmentApprovals({ toast }) {
         </button>
       </div>
 
-      <Card>{sortedItems.length === 0 ? <Empty title="No appointment requests" detail="Try adjusting your status filter." /> : sortedItems.map(item => (
-        <div className="request-row" key={item.APPT_ID}>
-          <div><h3>{item.PATIENT_NAME}</h3><p>{item.DOCTOR_NAME} · {item.DEPT_NAME}</p><small>{item.APPT_DATE} · {item.APPT_TIME} · {item.REASON || "No reason provided"}</small></div>
-          <div className="row-actions"><Badge status={item.STATUS} />
-            {item.PRESCRIPTION_ID ? (
-              <Btn variant="secondary" onClick={() => viewPrescription(item.APPT_ID)}>View Prescription</Btn>
-            ) : (
-              ["Approved", "Scheduled", "Completed"].includes(item.STATUS) && (
-                <Btn variant="success" onClick={() => setPrescribeAppt(item)}>Write Prescription</Btn>
-              )
-            )}
-            {item.STATUS === "Pending" && <><Btn variant="success" onClick={() => mark(item.APPT_ID, "Approved")}>Approve</Btn><Btn variant="danger" onClick={() => mark(item.APPT_ID, "Rejected")}>Reject</Btn></>}
-            {["Approved", "Scheduled"].includes(item.STATUS) && <><Btn variant="success" onClick={() => mark(item.APPT_ID, "Completed")}>Complete</Btn><Btn variant="ghost" onClick={() => mark(item.APPT_ID, "No-Show")}>No-show</Btn></>}
-          </div>
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+          <h2 style={{ margin: 0, fontSize: "16px" }}>Appointments Manager</h2>
+          {sortedItems.length > 10 && (
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
+              <input 
+                type="checkbox" 
+                checked={showAll} 
+                onChange={e => setShowAll(e.target.checked)}
+                style={{ cursor: "pointer" }}
+              />
+              Show All ({sortedItems.length})
+            </label>
+          )}
         </div>
-      ))}</Card>
+        {itemsToShow.length === 0 ? <Empty title="No appointment requests" detail="Try adjusting your status filter." /> : itemsToShow.map(item => (
+          <div className="request-row" key={item.APPT_ID}>
+            <div><h3>{item.PATIENT_NAME}</h3><p>{item.DOCTOR_NAME} · {item.DEPT_NAME}</p><small>{item.APPT_DATE} · {item.APPT_TIME} · {item.REASON || "No reason provided"}</small></div>
+            <div className="row-actions"><Badge status={item.STATUS} />
+              {item.PRESCRIPTION_ID ? (
+                <Btn variant="secondary" onClick={() => viewPrescription(item.APPT_ID)}>View Prescription</Btn>
+              ) : (
+                ["Approved", "Scheduled", "Completed"].includes(item.STATUS) && (
+                  <Btn variant="success" onClick={() => setPrescribeAppt(item)}>Write Prescription</Btn>
+                )
+              )}
+              {item.STATUS === "Pending" && <><Btn variant="success" onClick={() => mark(item.APPT_ID, "Approved")}>Approve</Btn><Btn variant="danger" onClick={() => mark(item.APPT_ID, "Rejected")}>Reject</Btn></>}
+              {["Approved", "Scheduled"].includes(item.STATUS) && <><Btn variant="success" onClick={() => mark(item.APPT_ID, "Completed")}>Complete</Btn><Btn variant="ghost" onClick={() => mark(item.APPT_ID, "No-Show")}>No-show</Btn></>}
+            </div>
+          </div>
+        ))}
+      </Card>
 
       {prescribeAppt && (
         <Modal title={`Write Prescription for ${prescribeAppt.PATIENT_NAME}`} onClose={() => setPrescribeAppt(null)}>
@@ -3835,12 +3905,21 @@ function AuthorityTests({ toast }) {
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [addingTestState, setAddingTestState] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const TEMPLATES = {
     cbc: "HEMOGLOBIN: 14.1 g/dL (Normal: 13.5 - 17.5)\nRBC COUNT: 4.8 Million/mcL (Normal: 4.3 - 5.9)\nWBC COUNT: 6,800 /mcL (Normal: 4,500 - 11,000)\nPLATELETS: 245,000 /mcL (Normal: 150,000 - 450,000)\nHEMATOCRIT: 42% (Normal: 41% - 50%)\nIMPRESSION: Hemogram parameters are within normal reference bounds.",
     lipid: "TOTAL CHOLESTEROL: 185 mg/dL (Normal: < 200)\nTRIGLYCERIDES: 130 mg/dL (Normal: < 150)\nHDL CHOLESTEROL: 48 mg/dL (Normal: > 40)\nLDL CHOLESTEROL: 111 mg/dL (Normal: < 130)\nIMPRESSION: Desirable lipid profile scores. Normal cardiovascular bounds.",
     glucose: "FASTING BLOOD GLUCOSE: 92 mg/dL (Normal: 70 - 100)\nPOST PRANDIAL GLUCOSE: 125 mg/dL (Normal: < 140)\nHbA1c: 5.4% (Normal: < 5.7%)\nIMPRESSION: Glycemic profiles display excellent metabolic control.",
-    urine: "COLOR: Pale Yellow\nSP. GRAVITY: 1.015 (Normal: 1.005 - 1.030)\npH: 6.0 (Normal: 4.6 - 8.0)\nALBUMIN: Negative\nSUGAR: Negative\nIMPRESSION: Normal urinalysis. No indicators of active UTI."
+    urine: "COLOR: Pale Yellow\nSP. GRAVITY: 1.015 (Normal: 1.005 - 1.030)\npH: 6.0 (Normal: 4.6 - 8.0)\nALBUMIN: Negative\nSUGAR: Negative\nIMPRESSION: Normal urinalysis. No indicators of active UTI.",
+    thyroid: "TOTAL T3: 1.2 ng/mL (Normal: 0.8 - 2.0)\nTOTAL T4: 7.5 mcg/dL (Normal: 5.1 - 14.1)\nTSH: 2.1 mIU/L (Normal: 0.4 - 4.5)\nIMPRESSION: Euthyroid state. Normal thyroid hormone levels.",
+    lft: "TOTAL BILIRUBIN: 0.8 mg/dL (Normal: 0.2 - 1.2)\nSGOT (AST): 24 U/L (Normal: 5 - 40)\nSGPT (ALT): 28 U/L (Normal: 7 - 56)\nALKALINE PHOSPHATASE: 72 U/L (Normal: 44 - 147)\nTOTAL PROTEIN: 7.1 g/dL (Normal: 6.0 - 8.3)\nIMPRESSION: Hepatic enzymes and metabolic functions are within physiological bounds.",
+    kft: "SERUM CREATININE: 0.9 mg/dL (Normal: 0.6 - 1.2)\nBLOOD UREA NITROGEN (BUN): 14 mg/dL (Normal: 7 - 20)\nURIC ACID: 5.2 mg/dL (Normal: 3.5 - 7.2)\nIMPRESSION: Renal filtration and clearing parameters are normal.",
+    vitamins: "25-HYDROXY VITAMIN D: 32 ng/mL (Normal: 30 - 100)\nVITAMIN B12: 420 pg/mL (Normal: 200 - 900)\nIMPRESSION: Vitamin reserves are adequate. Normal nutritional profile.",
+    cardiac: "CARDIAC TROPONIN I: <0.01 ng/mL (Normal: <0.04)\nCK-MB: 1.8 ng/mL (Normal: <5.0)\nIMPRESSION: Cardiospecific biomarkers are normal. No active myocardial injury detected.",
+    hba1c: "HbA1c (GLYCATED HEMOGLOBIN): 5.6% (Normal: <5.7%)\nESTIMATED AVERAGE GLUCOSE (eAG): 114 mg/dL\nIMPRESSION: Glycemic scores show non-diabetic range.",
+    dengue: "DENGUE NS1 ANTIGEN: Negative\nDENGUE IgM ANTIBODY: Negative\nDENGUE IgG ANTIBODY: Negative\nIMPRESSION: Seronegative. No diagnostic markers of Dengue infection present.",
+    crp: "C-REACTIVE PROTEIN (CRP): 1.4 mg/L (Normal: <3.0)\nIMPRESSION: CRP levels indicate no acute systemic inflammatory processes."
   };
 
   const applyTemplate = (key) => {
@@ -3898,6 +3977,8 @@ function AuthorityTests({ toast }) {
     return 0;
   });
 
+  const requestsToShow = showAll ? sortedRequests : sortedRequests.slice(0, 10);
+
   return (
     <>
       <PageHeader title="Diagnostic Requests" subtitle="Manage the test catalog and approve patient bookings." />
@@ -3916,7 +3997,23 @@ function AuthorityTests({ toast }) {
           </form>
           <p className="muted">{catalog.length} tests currently available.</p>
         </Card>
-        <Card><h2>Patient requests</h2>{sortedRequests.length === 0 ? <Empty title="No test requests" detail="" /> : sortedRequests.map(item => <div className="list-row expanded" key={item.BOOKING_ID}><div><strong>{item.PATIENT_NAME} · {item.TEST_NAME}</strong><small>{item.BOOKING_DATE} · {money(item.PRICE)}</small></div><div className="row-actions"><Badge status={item.STATUS} />{item.STATUS === "Pending" && <><Btn variant="success" onClick={() => mark(item.BOOKING_ID, "Approved")}>Approve</Btn><Btn variant="danger" onClick={() => mark(item.BOOKING_ID, "Rejected")}>Reject</Btn></>}{item.STATUS === "Approved" && <Btn variant="primary" onClick={() => setCompletingTest(item)}>Complete & Report</Btn>}</div></div>)}</Card>
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+            <h2 style={{ margin: 0, fontSize: "16px" }}>Patient requests</h2>
+            {sortedRequests.length > 10 && (
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
+                <input 
+                  type="checkbox" 
+                  checked={showAll} 
+                  onChange={e => setShowAll(e.target.checked)}
+                  style={{ cursor: "pointer" }}
+                />
+                Show All ({sortedRequests.length})
+              </label>
+            )}
+          </div>
+          {requestsToShow.length === 0 ? <Empty title="No test requests" detail="" /> : requestsToShow.map(item => <div className="list-row expanded" key={item.BOOKING_ID}><div><strong>{item.PATIENT_NAME} · {item.TEST_NAME}</strong><small>{item.BOOKING_DATE} · {money(item.PRICE)}</small></div><div className="row-actions"><Badge status={item.STATUS} />{item.STATUS === "Pending" && <><Btn variant="success" onClick={() => mark(item.BOOKING_ID, "Approved")}>Approve</Btn><Btn variant="danger" onClick={() => mark(item.BOOKING_ID, "Rejected")}>Reject</Btn></>}{item.STATUS === "Approved" && <Btn variant="primary" onClick={() => setCompletingTest(item)}>Complete & Report</Btn>}</div></div>)}
+        </Card>
       </div>
 
       {completingTest && (
@@ -3935,6 +4032,14 @@ function AuthorityTests({ toast }) {
                   <button type="button" className="template-btn" onClick={() => applyTemplate('lipid')}>Lipid Profile</button>
                   <button type="button" className="template-btn" onClick={() => applyTemplate('glucose')}>Glucose</button>
                   <button type="button" className="template-btn" onClick={() => applyTemplate('urine')}>Urinalysis</button>
+                  <button type="button" className="template-btn" onClick={() => applyTemplate('thyroid')}>Thyroid</button>
+                  <button type="button" className="template-btn" onClick={() => applyTemplate('lft')}>LFT</button>
+                  <button type="button" className="template-btn" onClick={() => applyTemplate('kft')}>KFT</button>
+                  <button type="button" className="template-btn" onClick={() => applyTemplate('vitamins')}>Vitamins</button>
+                  <button type="button" className="template-btn" onClick={() => applyTemplate('cardiac')}>Cardiac Marker</button>
+                  <button type="button" className="template-btn" onClick={() => applyTemplate('hba1c')}>HbA1c Only</button>
+                  <button type="button" className="template-btn" onClick={() => applyTemplate('dengue')}>Dengue</button>
+                  <button type="button" className="template-btn" onClick={() => applyTemplate('crp')}>CRP</button>
                 </div>
               </div>
 
@@ -3967,6 +4072,8 @@ function Billing({ toast }) {
   const [patients, setPatients] = useState([]);
   const [bills, setBills] = useState([]);
   const [form, setForm] = useState(BILL_FORM);
+  const [showAll, setShowAll] = useState(false);
+
   const load = useCallback(() => Promise.all([api.get("/patients"), api.get("/bills")]).then(([people, rows]) => { setPatients(people); setBills(rows); }).catch(error => toast(error.message, "error")), [toast]);
   useEffect(() => {
     let active = true;
@@ -4001,6 +4108,8 @@ function Billing({ toast }) {
     return 0;
   });
 
+  const billsToShow = showAll ? sortedBills : sortedBills.slice(0, 10);
+
   return (
     <>
       <PageHeader title="Billing" subtitle="Issue patient bills and maintain payment status." />
@@ -4012,7 +4121,23 @@ function Billing({ toast }) {
           <Input label="Due date" type="date" value={form.due_date} onChange={event => setForm({ ...form, due_date: event.target.value })} />
           <Btn type="submit">Send bill</Btn>
         </form></Card>
-        <Card><h2>Issued bills</h2>{sortedBills.length === 0 ? <Empty title="No bills issued" detail="" /> : sortedBills.map(bill => <div className="list-row expanded" key={bill.BILL_ID}><div><strong>{bill.PATIENT_NAME}</strong><small>{bill.DESCRIPTION} · {money(bill.TOTAL_AMOUNT)}</small></div><div className="row-actions"><Badge status={bill.PAYMENT_STATUS} />{bill.PAYMENT_STATUS === "Pending" && <Btn variant="success" onClick={() => markPaid(bill.BILL_ID)}>Paid</Btn>}</div></div>)}</Card>
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+            <h2 style={{ margin: 0, fontSize: "16px" }}>Issued bills</h2>
+            {sortedBills.length > 10 && (
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
+                <input 
+                  type="checkbox" 
+                  checked={showAll} 
+                  onChange={e => setShowAll(e.target.checked)}
+                  style={{ cursor: "pointer" }}
+                />
+                Show All ({sortedBills.length})
+              </label>
+            )}
+          </div>
+          {billsToShow.length === 0 ? <Empty title="No bills issued" detail="" /> : billsToShow.map(bill => <div className="list-row expanded" key={bill.BILL_ID}><div><strong>{bill.PATIENT_NAME}</strong><small>{bill.DESCRIPTION} · {money(bill.TOTAL_AMOUNT)}</small></div><div className="row-actions"><Badge status={bill.PAYMENT_STATUS} />{bill.PAYMENT_STATUS === "Pending" && <Btn variant="success" onClick={() => markPaid(bill.BILL_ID)}>Paid</Btn>}</div></div>)}
+        </Card>
       </div>
     </>
   );
