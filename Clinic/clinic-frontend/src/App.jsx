@@ -2944,8 +2944,10 @@ function DoctorAppointments({ toast }) {
               <div>
                 <strong>{appt.PATIENT_NAME}</strong>
                 <small>{appt.APPT_DATE} · {appt.APPT_TIME}</small>
-                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
-                  <span>Gender: {appt.GENDER}</span> · <span>DOB: {appt.DOB}</span> · <span>Phone: {appt.PHONE}</span>
+                <div className="appt-meta-info" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}><strong>Gender:</strong>&nbsp;{appt.GENDER}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}><strong>DOB:</strong>&nbsp;{appt.DOB}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}><strong>Phone:</strong>&nbsp;{appt.PHONE}</span>
                 </div>
                 {appt.REASON && <p style={{ margin: "6px 0 0", fontSize: 13 }}>Reason: {appt.REASON}</p>}
                 {appt.NOTES && <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)", fontStyle: "italic" }}>Admin Notes: {appt.NOTES}</p>}
@@ -3657,6 +3659,12 @@ function AuthorityTests({ toast }) {
     }
   };
 
+  const sortedRequests = [...requests].sort((a, b) => {
+    if (a.STATUS === "Pending" && b.STATUS !== "Pending") return -1;
+    if (a.STATUS !== "Pending" && b.STATUS === "Pending") return 1;
+    return 0;
+  });
+
   return (
     <>
       <PageHeader title="Diagnostic Requests" subtitle="Manage the test catalog and approve patient bookings." />
@@ -3675,7 +3683,7 @@ function AuthorityTests({ toast }) {
           </form>
           <p className="muted">{catalog.length} tests currently available.</p>
         </Card>
-        <Card><h2>Patient requests</h2>{requests.length === 0 ? <Empty title="No test requests" detail="" /> : requests.map(item => <div className="list-row expanded" key={item.BOOKING_ID}><div><strong>{item.PATIENT_NAME} · {item.TEST_NAME}</strong><small>{item.BOOKING_DATE} · {money(item.PRICE)}</small></div><div className="row-actions"><Badge status={item.STATUS} />{item.STATUS === "Pending" && <><Btn variant="success" onClick={() => mark(item.BOOKING_ID, "Approved")}>Approve</Btn><Btn variant="danger" onClick={() => mark(item.BOOKING_ID, "Rejected")}>Reject</Btn></>}{item.STATUS === "Approved" && <Btn variant="primary" onClick={() => setCompletingTest(item)}>Complete & Report</Btn>}</div></div>)}</Card>
+        <Card><h2>Patient requests</h2>{sortedRequests.length === 0 ? <Empty title="No test requests" detail="" /> : sortedRequests.map(item => <div className="list-row expanded" key={item.BOOKING_ID}><div><strong>{item.PATIENT_NAME} · {item.TEST_NAME}</strong><small>{item.BOOKING_DATE} · {money(item.PRICE)}</small></div><div className="row-actions"><Badge status={item.STATUS} />{item.STATUS === "Pending" && <><Btn variant="success" onClick={() => mark(item.BOOKING_ID, "Approved")}>Approve</Btn><Btn variant="danger" onClick={() => mark(item.BOOKING_ID, "Rejected")}>Reject</Btn></>}{item.STATUS === "Approved" && <Btn variant="primary" onClick={() => setCompletingTest(item)}>Complete & Report</Btn>}</div></div>)}</Card>
       </div>
 
       {completingTest && (
@@ -3753,6 +3761,13 @@ function Billing({ toast }) {
       toast(error.message, "error");
     }
   };
+
+  const sortedBills = [...bills].sort((a, b) => {
+    if (a.PAYMENT_STATUS === "Pending" && b.PAYMENT_STATUS !== "Pending") return -1;
+    if (a.PAYMENT_STATUS !== "Pending" && b.PAYMENT_STATUS === "Pending") return 1;
+    return 0;
+  });
+
   return (
     <>
       <PageHeader title="Billing" subtitle="Issue patient bills and maintain payment status." />
@@ -3764,7 +3779,7 @@ function Billing({ toast }) {
           <Input label="Due date" type="date" value={form.due_date} onChange={event => setForm({ ...form, due_date: event.target.value })} />
           <Btn type="submit">Send bill</Btn>
         </form></Card>
-        <Card><h2>Issued bills</h2>{bills.length === 0 ? <Empty title="No bills issued" detail="" /> : bills.map(bill => <div className="list-row expanded" key={bill.BILL_ID}><div><strong>{bill.PATIENT_NAME}</strong><small>{bill.DESCRIPTION} · {money(bill.TOTAL_AMOUNT)}</small></div><div className="row-actions"><Badge status={bill.PAYMENT_STATUS} />{bill.PAYMENT_STATUS === "Pending" && <Btn variant="success" onClick={() => markPaid(bill.BILL_ID)}>Paid</Btn>}</div></div>)}</Card>
+        <Card><h2>Issued bills</h2>{sortedBills.length === 0 ? <Empty title="No bills issued" detail="" /> : sortedBills.map(bill => <div className="list-row expanded" key={bill.BILL_ID}><div><strong>{bill.PATIENT_NAME}</strong><small>{bill.DESCRIPTION} · {money(bill.TOTAL_AMOUNT)}</small></div><div className="row-actions"><Badge status={bill.PAYMENT_STATUS} />{bill.PAYMENT_STATUS === "Pending" && <Btn variant="success" onClick={() => markPaid(bill.BILL_ID)}>Paid</Btn>}</div></div>)}</Card>
       </div>
     </>
   );

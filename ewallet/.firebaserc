@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "staging": "swift-wallet-b58cb"
+  },
+  "targets": {},
+  "etags": {}
+}

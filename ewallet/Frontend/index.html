@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Swift-Wallet</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Status Overlay for payment results -->
+    <div id="status-overlay" class="status-overlay hidden" aria-live="polite" aria-atomic="true">
+      <div class="status-card">
+        <div class="icon" id="status-icon" aria-hidden="true"></div>
+        <div class="message" id="status-message">Processing...</div>
+      </div>
+    </div>
+    <header class="topbar">
+      <div class="brand">Swift-Wallet</div>
+      <button id="nav-toggle" class="nav-toggle" aria-label="Toggle menu" aria-expanded="false">☰</button>
+      <nav class="nav" id="main-nav">
+        <button id="nav-dashboard" class="nav-btn">Dashboard</button>
+        <button id="nav-send" class="nav-btn">Send</button>
+        <button id="nav-topup" class="nav-btn">Top Up</button>
+        <button id="nav-upload" class="nav-btn">Upload QR</button>
+        <button id="nav-bills" class="nav-btn">Bills</button>
+        <button id="nav-history" class="nav-btn">History</button>
+        <button id="nav-admin" class="nav-btn hidden">Admin</button>
+      </nav>
+      <div class="auth-area" id="auth-area">
+        <span id="user-info"></span>
+        <!-- Demo mode toggle (controls Top Up demo vs real confirm) -->
+        <button id="dev-mode-toggle" class="small ghost" title="Toggle demo mode">Demo: ON</button>
+        <button id="api-settings-btn" class="small ghost" title="Configure Backend API URL">⚙ API</button>
+        <button id="btn-login" class="small">Login</button>
+        <button id="btn-register" class="small">Register</button>
+        <button id="btn-logout" class="small hidden">Logout</button>
+      </div>
+    </header>
+
+    <main id="main" class="container">
+      <!-- Views injected by JS -->
+    </main>
+
+    <footer class="footer">
+      <small>A Project Developed by - Supriya Satpati</small>
+    </footer>
+  </div>
+
+  <!-- Stripe JS (for client-side card collection) -->
+  <!-- Set your Stripe publishable key for testing (publishable key only, safe for client-side). Replace with your own pk_test_... key. -->
+  <script>window.__STRIPE_PUBLISHABLE_KEY__ = 'pk_test_TYooMQauvdEDq54NiTphI7jx';</script>
+  <script src="https://js.stripe.com/v3/"></script>
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js';
+    import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.13.1/firebase-analytics.js';
+
+    const firebaseConfig = {
+      apiKey: 'AIzaSyDud3qV7XX0hVwIpiFY02OhWaMc_Tyezn4',
+      authDomain: 'swift-wallet-b58cb.firebaseapp.com',
+      projectId: 'swift-wallet-b58cb',
+      storageBucket: 'swift-wallet-b58cb.firebasestorage.app',
+      messagingSenderId: '69339936517',
+      appId: '1:69339936517:web:57a5bd022c0ceaf919296c',
+      measurementId: 'G-8RTMQS80FH'
+    };
+
+    const app = initializeApp(firebaseConfig);
+    try { getAnalytics(app); } catch (_) {}
+
+    // Expose Firebase Auth helpers to app.js via window
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
+    window.__firebaseAuth = auth;
+    window.__googleProvider = provider;
+    window.__googlePopupSignIn = async () => {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const idToken = await user.getIdToken();
+      return { user, idToken };
+    };
+  </script>
+  <!-- jsQR for client-side QR decoding -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script>
+    // Dynamically resolve Backend API Base URL
+    // 1. Check if a custom API URL has been set in localStorage
+    // 2. Otherwise default to localhost if running locally, or current host /api path as proxy fallback
+    const savedApi = localStorage.getItem('API_BASE_URL');
+    if (savedApi) {
+      window.__API_BASE__ = savedApi;
+    } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      window.__API_BASE__ = 'http://localhost:4000/api';
+    } else {
+      window.__API_BASE__ = window.location.origin + '/api';
+    }
+    console.log('API Base URL:', window.__API_BASE__);
+  </script>
+  <script src="app.js"></script>
+
+<style>
+ @media (max-width:760px){
+  .grid.cols-3,.grid.cols-2{grid-template-columns:1fr}
+
+  /* Toggle button for hamburger */
+  .nav-toggle{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:42px;
+    height:42px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:12px;
+    cursor:pointer;
+    position:relative;
+    z-index:30;
+    transition:all .25s ease;
+    box-shadow:0 6px 20px rgba(2,6,23,0.6);
+  }
+  .nav-toggle:hover{
+    transform:translateY(-2px);
+    box-shadow:0 12px 30px rgba(2,6,23,0.75);
+    border-color:rgba(124,92,255,0.25);
+  }
+
+  /* Hamburger icon lines */
+  .nav-toggle span,
+  .nav-toggle::before,
+  .nav-toggle::after{
+    content:'';
+    position:absolute;
+    width:20px;
+    height:2px;
+    background:linear-gradient(90deg,var(--accent1),var(--accent2));
+    border-radius:2px;
+    transition:all .3s cubic-bezier(.4,.9,.4,1.2);
+    box-shadow:0 0 6px rgba(124,92,255,0.2);
+  }
+  .nav-toggle::before{top:12px}
+  .nav-toggle::after{bottom:12px}
+  .nav-toggle span{top:50%;transform:translateY(-50%)}
+
+  /* Active -> cross */
+  .nav-toggle.active::before{
+    transform:translateY(6px) rotate(45deg);
+  }
+  .nav-toggle.active::after{
+    transform:translateY(-6px) rotate(-45deg);
+  }
+  .nav-toggle.active span{
+    opacity:0;
+    transform:scale(0);
+  }
+
+  /* Mobile nav dropdown */
+  .nav{
+    display:none;
+    position:absolute;
+    top:64px;
+    left:0;
+    right:0;
+    background:linear-gradient(180deg, rgba(18,22,38,0.92), rgba(18,22,38,0.88));
+    padding:16px 18px;
+    border-radius:16px;
+    margin:0 22px;
+    box-shadow:0 20px 60px rgba(2,6,23,0.8);
+    z-index:25;
+    backdrop-filter:blur(14px) saturate(130%);
+    -webkit-backdrop-filter:blur(14px) saturate(130%);
+    border:1px solid rgba(255,255,255,0.06);
+    transform-origin:top;
+    transform:scaleY(0.9);
+    opacity:0;
+    transition:opacity .25s ease, transform .25s ease;
+  }
+  .nav.open{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    opacity:1;
+    transform:scaleY(1);
+  }
+
+  /* Mobile nav buttons */
+  .nav-btn{
+    width:100%;
+    text-align:left;
+    padding:14px 16px;
+    border:1px solid rgba(255,255,255,0.05);
+    border-radius:10px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03));
+    font-weight:600;
+    color:#f0f4ff;
+    font-size:14px;
+    transition:all .22s ease;
+    backdrop-filter:blur(4px);
+  }
+  .nav-btn:hover{
+    background:linear-gradient(90deg, rgba(124,92,255,0.18), rgba(0,224,161,0.12));
+    border-color:rgba(124,92,255,0.25);
+    transform:translateX(4px);
+    color:#fff;
+  }
+
+  /* Hide desktop auth area */
+  .auth-area{display:none}
+}
+
+</style>
+</body>
+</html>
