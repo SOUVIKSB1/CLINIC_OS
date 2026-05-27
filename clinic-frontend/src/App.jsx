@@ -1536,6 +1536,10 @@ function MyAppointments({ toast }) {
                 <span>Specialization</span>
                 <strong>{activePrescription.SPECIALIZATION}</strong>
               </div>
+              <div className="prescription-meta-item">
+                <span>Duration</span>
+                <strong>{activePrescription.DURATION ? `${activePrescription.DURATION} days` : "7 days"}</strong>
+              </div>
             </div>
             <div className="prescription-section">
               <h4>Rx Medicines</h4>
@@ -3794,6 +3798,7 @@ function AppointmentApprovals({ toast }) {
   const [activePrescription, setActivePrescription] = useState(null);
   const [medicines, setMedicines] = useState("");
   const [instructions, setInstructions] = useState("");
+  const [duration, setDuration] = useState("7");
   const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(() => api.get("/appointments").then(setItems).catch(error => toast(error.message, "error")), [toast]);
@@ -3818,12 +3823,14 @@ function AppointmentApprovals({ toast }) {
       await api.post('/prescriptions', {
         appointment_id: prescribeAppt.APPT_ID,
         medicines,
-        instructions
+        instructions,
+        duration: Number(duration) || 7
       });
       toast("Prescription generated successfully.");
       setPrescribeAppt(null);
       setMedicines("");
       setInstructions("");
+      setDuration("7");
       load();
     } catch (err) {
       toast(err.message, "error");
@@ -3957,6 +3964,14 @@ function AppointmentApprovals({ toast }) {
               value={instructions} 
               onChange={e => setInstructions(e.target.value)} 
             />
+            <Input 
+              label="Duration (days) *" 
+              type="number" 
+              min="1" 
+              value={duration} 
+              onChange={e => setDuration(e.target.value)} 
+              required 
+            />
             <div className="form-actions">
               <Btn type="submit">Submit & Complete Visit</Btn>
               <Btn type="button" variant="ghost" onClick={() => setPrescribeAppt(null)}>Cancel</Btn>
@@ -3984,6 +3999,10 @@ function AppointmentApprovals({ toast }) {
               <div className="prescription-meta-item">
                 <span>Specialization</span>
                 <strong>{activePrescription.SPECIALIZATION}</strong>
+              </div>
+              <div className="prescription-meta-item">
+                <span>Duration</span>
+                <strong>{activePrescription.DURATION ? `${activePrescription.DURATION} days` : "7 days"}</strong>
               </div>
             </div>
             <div className="prescription-section">
