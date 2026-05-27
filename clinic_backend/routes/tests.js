@@ -69,6 +69,29 @@ router.put('/catalog/:id', authenticate, authorize('ADMIN'), async (req, res) =>
   }
 });
 
+router.delete('/catalog/:id', authenticate, authorize('ADMIN'), async (req, res) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    const result = await conn.execute(
+      `DELETE FROM lab_tests WHERE test_id = :id`,
+      [Number(req.params.id)],
+      { autoCommit: true }
+    );
+    if (result.rowsAffected === 0)
+      return res.status(404).json({ error: 'Lab test not found' });
+    res.json({ message: 'Lab test deleted successfully' });
+  } catch (err) {
+    if (err.message.includes('ORA-02292')) {
+      return res.status(400).json({ error: 'Cannot delete this test because patients have already booked appointments for it.' });
+    }
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
+
 
 router.get('/requests', authenticate, authorize('ADMIN'), async (req, res) => {
   let conn;

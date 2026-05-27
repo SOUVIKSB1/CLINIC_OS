@@ -3910,6 +3910,7 @@ function AuthorityTests({ toast }) {
   const [editForm, setEditForm] = useState({ test_name: "", description: "", price: "", preparation: "" });
   const [editingTestState, setEditingTestState] = useState(false);
   const [showAllCatalog, setShowAllCatalog] = useState(false);
+  const [activeTab, setActiveTab] = useState("requests");
 
   const TEMPLATES = {
     cbc: "HEMOGLOBIN: 14.1 g/dL (Normal: 13.5 - 17.5)\nRBC COUNT: 4.8 Million/mcL (Normal: 4.3 - 5.9)\nWBC COUNT: 6,800 /mcL (Normal: 4,500 - 11,000)\nPLATELETS: 245,000 /mcL (Normal: 150,000 - 450,000)\nHEMATOCRIT: 42% (Normal: 41% - 50%)\nIMPRESSION: Hemogram parameters are within normal reference bounds.",
@@ -3977,6 +3978,17 @@ function AuthorityTests({ toast }) {
       setEditingTestState(false);
     }
   };
+
+  const handleDeleteTest = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this lab test? This action cannot be undone.")) return;
+    try {
+      await api.del(`/tests/catalog/${id}`);
+      toast("Lab test deleted successfully.");
+      load();
+    } catch (error) {
+      toast(error.message, "error");
+    }
+  };
   const mark = async (id, status) => {
     try {
       await api.put(`/tests/requests/${id}/status`, { status });
@@ -4040,65 +4052,90 @@ function AuthorityTests({ toast }) {
           </form>
           <p className="muted">{catalog.length} tests currently available.</p>
         </Card>
-        <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-            <h2 style={{ margin: 0, fontSize: "16px" }}>Patient requests</h2>
-            {sortedRequests.length > 10 && (
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
-                <input 
-                  type="checkbox" 
-                  checked={showAll} 
-                  onChange={e => setShowAll(e.target.checked)}
-                  style={{ cursor: "pointer" }}
-                />
-                Show All ({sortedRequests.length})
-              </label>
-            )}
+
+        <div className="stack">
+          {/* Catalog / Requests Switch */}
+          <div className="auth-tabs" style={{ padding: "4px", marginBottom: "16px" }}>
+            <button 
+              type="button"
+              className={activeTab === "requests" ? "active" : ""} 
+              onClick={() => setActiveTab("requests")}
+              style={{ fontSize: "12px", padding: "8px" }}
+            >
+              Patient Requests ({sortedRequests.length})
+            </button>
+            <button 
+              type="button"
+              className={activeTab === "catalog" ? "active" : ""} 
+              onClick={() => setActiveTab("catalog")}
+              style={{ fontSize: "12px", padding: "8px" }}
+            >
+              Lab Test Catalog ({catalog.length})
+            </button>
           </div>
-          {requestsToShow.length === 0 ? <Empty title="No test requests" detail="" /> : requestsToShow.map(item => <div className="list-row expanded" key={item.BOOKING_ID}><div><strong>{item.PATIENT_NAME} · {item.TEST_NAME}</strong><small>{item.BOOKING_DATE} · {money(item.PRICE)}</small></div><div className="row-actions"><Badge status={item.STATUS} />{item.STATUS === "Pending" && <><Btn variant="success" onClick={() => mark(item.BOOKING_ID, "Approved")}>Approve</Btn><Btn variant="danger" onClick={() => mark(item.BOOKING_ID, "Rejected")}>Reject</Btn></>}{item.STATUS === "Approved" && <Btn variant="primary" onClick={() => setCompletingTest(item)}>Complete & Report</Btn>}</div></div>)}
-        </Card>
+
+          {activeTab === "requests" ? (
+            <Card>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+                <h2 style={{ margin: 0, fontSize: "16px" }}>Patient requests</h2>
+                {sortedRequests.length > 10 && (
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
+                    <input 
+                      type="checkbox" 
+                      checked={showAll} 
+                      onChange={e => setShowAll(e.target.checked)}
+                      style={{ cursor: "pointer" }}
+                    />
+                    Show All
+                  </label>
+                )}
+              </div>
+              {requestsToShow.length === 0 ? <Empty title="No test requests" detail="" /> : requestsToShow.map(item => <div className="list-row expanded" key={item.BOOKING_ID}><div><strong>{item.PATIENT_NAME} · {item.TEST_NAME}</strong><small>{item.BOOKING_DATE} · {money(item.PRICE)}</small></div><div className="row-actions"><Badge status={item.STATUS} />{item.STATUS === "Pending" && <><Btn variant="success" onClick={() => mark(item.BOOKING_ID, "Approved")}>Approve</Btn><Btn variant="danger" onClick={() => mark(item.BOOKING_ID, "Rejected")}>Reject</Btn></>}{item.STATUS === "Approved" && <Btn variant="primary" onClick={() => setCompletingTest(item)}>Complete & Report</Btn>}</div></div>)}
+            </Card>
+          ) : (
+            <Card>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+                <h2 style={{ margin: 0, fontSize: "16px" }}>Lab Test Catalog</h2>
+                {catalog.length > 10 && (
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
+                    <input 
+                      type="checkbox" 
+                      checked={showAllCatalog} 
+                      onChange={e => setShowAllCatalog(e.target.checked)}
+                      style={{ cursor: "pointer" }}
+                    />
+                    Show All
+                  </label>
+                )}
+              </div>
+              {catalogToShow.length === 0 ? (
+                <Empty title="No tests in catalog" detail="Add a test to get started." />
+              ) : (
+                catalogToShow.map(item => (
+                  <div className="list-row expanded" key={item.TEST_ID}>
+                    <div>
+                      <strong>{item.TEST_NAME}</strong>
+                      <small>
+                        {money(item.PRICE)} {item.PREPARATION ? `· Preparation: ${item.PREPARATION}` : ""}
+                      </small>
+                      {item.DESCRIPTION && (
+                        <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "var(--muted)", lineHeight: "1.4" }}>
+                          {item.DESCRIPTION}
+                        </p>
+                      )}
+                    </div>
+                    <div className="row-actions" style={{ display: "flex", gap: "6px" }}>
+                      <Btn variant="primary" onClick={() => handleEditTest(item)}>Edit</Btn>
+                      <Btn variant="danger" onClick={() => handleDeleteTest(item.TEST_ID)}>Delete</Btn>
+                    </div>
+                  </div>
+                ))
+              )}
+            </Card>
+          )}
+        </div>
       </div>
 
-      <div style={{ marginTop: "24px" }}>
-        <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-            <h2 style={{ margin: 0, fontSize: "16px" }}>Lab Test Catalog</h2>
-            {catalog.length > 10 && (
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
-                <input 
-                  type="checkbox" 
-                  checked={showAllCatalog} 
-                  onChange={e => setShowAllCatalog(e.target.checked)}
-                  style={{ cursor: "pointer" }}
-                />
-                Show All ({catalog.length})
-              </label>
-            )}
-          </div>
-          {catalogToShow.length === 0 ? (
-            <Empty title="No tests in catalog" detail="Add a test above to get started." />
-          ) : (
-            catalogToShow.map(item => (
-              <div className="list-row expanded" key={item.TEST_ID}>
-                <div>
-                  <strong>{item.TEST_NAME}</strong>
-                  <small>
-                    {money(item.PRICE)} {item.PREPARATION ? `· Preparation: ${item.PREPARATION}` : ""}
-                  </small>
-                  {item.DESCRIPTION && (
-                    <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "var(--muted)", lineHeight: "1.4" }}>
-                      {item.DESCRIPTION}
-                    </p>
-                  )}
-                </div>
-                <div className="row-actions">
-                  <Btn variant="primary" onClick={() => handleEditTest(item)}>Edit</Btn>
-                </div>
-              </div>
-            ))
-          )}
-        </Card>
-      </div>
 
       {completingTest && (
         <Modal title="Complete Lab Test & Write Report" onClose={() => { setCompletingTest(null); setResults(""); setSuccessMsg(""); }}>
