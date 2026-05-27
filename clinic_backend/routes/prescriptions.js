@@ -109,4 +109,68 @@ router.get('/appointment/:appt_id', authenticate, async (req, res) => {
   }
 });
 
+// GET all prescriptions for a specific patient
+router.get('/patient/:patient_id', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    const result = await conn.execute(
+      `SELECT pr.prescription_id, pr.appointment_id, pr.medicines, pr.instructions,
+              TO_CHAR(pr.created_at, 'YYYY-MM-DD HH:MI AM') AS created_at,
+              'Dr. ' || d.first_name || ' ' || d.last_name AS doctor_name,
+              d.specialization,
+              p.first_name || ' ' || p.last_name AS patient_name,
+              TO_CHAR(a.appt_date, 'YYYY-MM-DD') AS appt_date, a.appt_time
+       FROM prescriptions pr
+       JOIN appointments a ON pr.appointment_id = a.appt_id
+       JOIN doctors d ON pr.doctor_id = d.doctor_id
+       JOIN patients p ON pr.patient_id = p.patient_id
+       WHERE pr.patient_id = :patient_id
+       ORDER BY a.appt_date DESC, pr.created_at DESC`,
+      [req.params.patient_id],
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
+// PUT update a prescription
+router.put('/:id', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) => {
+  const { medicines, instructions } = req.body;
+  if (!medicines?.trim()) {
+    return res.status(400).json({ error: 'Medicines are required' });
+  }
+
+  let conn;
+  try {
+    conn = await getConnection();
+    const result = await conn.execute(
+      `UPDATE prescriptions 
+       SET medicines = :medicines, instructions = :instructions 
+       WHERE prescription_id = :id`,
+      {
+        medicines: medicines.trim(),
+        instructions: instructions ? instructions.trim() : null,
+        id: req.params.id
+      },
+      { autoCommit: true }
+    );
+
+    if (result.rowsAffected === 0) {
+      return res.status(404).json({ error: 'Prescription not found' });
+    }
+
+    res.json({ message: 'Prescription updated successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (conn) await conn.close();
+  }
+});
+
 module.exports = router;
+

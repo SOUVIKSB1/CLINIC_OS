@@ -1335,7 +1335,7 @@ function PatientBooking({ toast, setPage }) {
                 </div>
               )}
 
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "20px" }}>
+              <div className="stepper-actions" style={{ justifyContent: "flex-end" }}>
                 <Btn onClick={() => setStep(2)} disabled={!form.doctor_id}>Next: Select Date & Time</Btn>
               </div>
             </div>
@@ -1382,7 +1382,7 @@ function PatientBooking({ toast, setPage }) {
                 </div>
               )}
 
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: "20px" }}>
+              <div className="stepper-actions">
                 <Btn variant="secondary" onClick={() => setStep(1)}>Back</Btn>
                 <Btn onClick={() => setStep(3)} disabled={!form.appt_date || !form.appt_time}>Next: Confirm details</Btn>
               </div>
@@ -1423,7 +1423,7 @@ function PatientBooking({ toast, setPage }) {
                 onChange={e => setForm({ ...form, reason: e.target.value })} 
               />
 
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: "20px" }}>
+              <div className="stepper-actions">
                 <Btn variant="secondary" onClick={() => setStep(2)}>Back</Btn>
                 <Btn onClick={submit} disabled={submitting}>
                   {submitting && <span className="spinner"></span>}
@@ -1539,6 +1539,7 @@ function PatientTests({ toast, user }) {
   const [clinicDoctors, setClinicDoctors] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [showAllBookings, setShowAllBookings] = useState(false);
 
   const loadBookings = useCallback(() => api.get("/tests/mine").then(setBookings).catch(error => toast(error.message, "error")), [toast]);
   
@@ -1620,6 +1621,8 @@ function PatientTests({ toast, user }) {
     }
   };
 
+  const bookingsToShow = showAllBookings ? bookings : bookings.slice(0, 10);
+
   return (
     <>
       <PageHeader title="Diagnostic Tests" subtitle="Request a test and receive confirmation from the hospital." />
@@ -1644,9 +1647,22 @@ function PatientTests({ toast, user }) {
           )}
         </Card>
         <Card>
-          <h2>My test requests</h2>
-          {bookings.length === 0 ? <Empty title="No test requests" detail="Select a diagnostic test to begin." /> :
-            bookings.map(item => (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+            <h2 style={{ margin: 0, fontSize: "16px" }}>My test requests</h2>
+            {bookings.length > 10 && (
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
+                <input 
+                  type="checkbox" 
+                  checked={showAllBookings} 
+                  onChange={e => setShowAllBookings(e.target.checked)}
+                  style={{ cursor: "pointer" }}
+                />
+                Show All ({bookings.length})
+              </label>
+            )}
+          </div>
+          {bookingsToShow.length === 0 ? <Empty title="No test requests" detail="Select a diagnostic test to begin." /> :
+            bookingsToShow.map(item => (
               <div className="list-row expanded" key={item.BOOKING_ID}>
                 <div>
                   <strong>{item.TEST_NAME}</strong>
@@ -1800,6 +1816,7 @@ function MyBills({ toast }) {
   const [paymentSuccessRef, setPaymentSuccessRef] = useState(null);
   const [formDetails, setFormDetails] = useState({ cardNumber: "", expiry: "", cvv: "", name: "", upiId: "", bank: "SBI" });
   const [isFlipped, setIsFlipped] = useState(false);
+  const [showAllBills, setShowAllBills] = useState(false);
 
   const loadBills = useCallback(() => {
     api.get("/bills/mine").then(setBills).catch(error => toast(error.message, "error"));
@@ -1832,12 +1849,28 @@ function MyBills({ toast }) {
     }
   };
 
+  const billsToShow = showAllBills ? bills : bills.slice(0, 10);
+
   return (
     <>
       <PageHeader title="My Bills" subtitle="Bills issued by the hospital appear here for your records." />
       <Card>
-        {bills.length === 0 ? <Empty title="No bills issued" detail="There are currently no charges on your account." /> :
-          bills.map(bill => (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+          <h2 style={{ margin: 0, fontSize: "16px" }}>Issued Bills &amp; Transactions</h2>
+          {bills.length > 10 && (
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
+              <input 
+                type="checkbox" 
+                checked={showAllBills} 
+                onChange={e => setShowAllBills(e.target.checked)}
+                style={{ cursor: "pointer" }}
+              />
+              Show All ({bills.length})
+            </label>
+          )}
+        </div>
+        {billsToShow.length === 0 ? <Empty title="No bills issued" detail="There are currently no charges on your account." /> :
+          billsToShow.map(bill => (
             <div className="request-row" key={bill.BILL_ID}>
               <div>
                 <h3>{bill.DESCRIPTION}</h3>
@@ -2892,6 +2925,22 @@ function DoctorAppointments({ toast }) {
   const [viewPrescAppt, setViewPrescAppt] = useState(null);
   const [prescription, setPrescription] = useState(null);
   const [form, setForm] = useState({ medicines: "", instructions: "" });
+  const [editingPresc, setEditingPresc] = useState(false);
+
+  const handleUpdatePrescription = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put(`/prescriptions/${prescription.PRESCRIPTION_ID}`, {
+        medicines: form.medicines,
+        instructions: form.instructions
+      });
+      toast("Prescription updated successfully!");
+      setEditingPresc(false);
+      viewPrescription(viewPrescAppt);
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  };
 
   const load = useCallback(() => {
     api.get("/doctors/me/appointments")
@@ -2922,12 +2971,17 @@ function DoctorAppointments({ toast }) {
 
   const viewPrescription = async (appt) => {
     setViewPrescAppt(appt);
+    setPrescription(null);
     try {
       const data = await api.get(`/prescriptions/appointment/${appt.APPT_ID}`);
       setPrescription(data);
     } catch (err) {
-      toast(err.message, "error");
-      setViewPrescAppt(null);
+      if (err.message.includes("not found") || err.message.includes("404")) {
+        setPrescription({ NOT_FOUND: true, APPT_ID: appt.APPT_ID });
+      } else {
+        toast(err.message, "error");
+        setViewPrescAppt(null);
+      }
     }
   };
 
@@ -2990,28 +3044,94 @@ function DoctorAppointments({ toast }) {
       )}
 
       {viewPrescAppt && (
-        <Modal title={`Prescription - ${viewPrescAppt.PATIENT_NAME}`} onClose={() => { setViewPrescAppt(null); setPrescription(null); }}>
+        <Modal title={`Prescription - ${viewPrescAppt.PATIENT_NAME}`} onClose={() => { setViewPrescAppt(null); setPrescription(null); setEditingPresc(false); }}>
           {prescription ? (
-            <div className="stack" style={{ gap: 16 }}>
-              <div>
-                <small style={{ color: "var(--muted)" }}>DATE & TIME</small>
-                <div>{prescription.appt_date} · {prescription.appt_time}</div>
-              </div>
-              <div>
-                <small style={{ color: "var(--muted)" }}>DOCTOR</small>
-                <div>{prescription.doctor_name} ({prescription.specialization})</div>
-              </div>
-              <div>
-                <small style={{ color: "var(--muted)" }}>MEDICINES</small>
-                <div style={{ fontWeight: 600, whiteSpace: "pre-wrap" }}>{prescription.medicines}</div>
-              </div>
-              {prescription.instructions && (
-                <div>
-                  <small style={{ color: "var(--muted)" }}>INSTRUCTIONS</small>
-                  <div style={{ whiteSpace: "pre-wrap" }}>{prescription.instructions}</div>
+            prescription.NOT_FOUND ? (
+              <form className="stack" onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  await api.post("/prescriptions", {
+                    appointment_id: viewPrescAppt.APPT_ID,
+                    medicines: form.medicines,
+                    instructions: form.instructions
+                  });
+                  toast("Prescription generated successfully!");
+                  setForm({ medicines: "", instructions: "" });
+                  viewPrescription(viewPrescAppt);
+                } catch (err) {
+                  toast(err.message, "error");
+                }
+              }}>
+                <p className="muted" style={{ marginBottom: 12 }}>No prescription is registered for this completed appointment. You can write one below:</p>
+                <Textarea
+                  label="Medicines (e.g. Paracetamol 500mg 1-0-1) *"
+                  placeholder="List medicines with dosing pattern..."
+                  value={form.medicines}
+                  onChange={e => setForm({ ...form, medicines: e.target.value })}
+                  required
+                />
+                <Textarea
+                  label="Instructions"
+                  placeholder="e.g. Take after meals, complete 5 days course"
+                  value={form.instructions}
+                  onChange={e => setForm({ ...form, instructions: e.target.value })}
+                />
+                <div style={{ marginTop: 12 }}>
+                  <Btn type="submit">Submit Prescription</Btn>
                 </div>
-              )}
-            </div>
+              </form>
+            ) : editingPresc ? (
+              <form className="stack" onSubmit={handleUpdatePrescription}>
+                <Textarea
+                  label="Medicines (e.g. Paracetamol 500mg 1-0-1, Amoxicillin 250mg 1-1-1) *"
+                  placeholder="List medicines with dosing pattern..."
+                  value={form.medicines}
+                  onChange={e => setForm({ ...form, medicines: e.target.value })}
+                  required
+                />
+                <Textarea
+                  label="Instructions"
+                  placeholder="e.g. Take after meals, complete 5 days course"
+                  value={form.instructions}
+                  onChange={e => setForm({ ...form, instructions: e.target.value })}
+                />
+                <div className="form-actions" style={{ marginTop: 12 }}>
+                  <Btn type="submit">Save Changes</Btn>
+                  <Btn type="button" variant="ghost" onClick={() => setEditingPresc(false)}>Cancel</Btn>
+                </div>
+              </form>
+            ) : (
+              <div className="stack" style={{ gap: 16 }}>
+                <div>
+                  <small style={{ color: "var(--muted)" }}>DATE & TIME</small>
+                  <div>{prescription.APPT_DATE} · {prescription.APPT_TIME}</div>
+                </div>
+                <div>
+                  <small style={{ color: "var(--muted)" }}>DOCTOR</small>
+                  <div>{prescription.DOCTOR_NAME} ({prescription.SPECIALIZATION})</div>
+                </div>
+                <div>
+                  <small style={{ color: "var(--muted)" }}>MEDICINES</small>
+                  <div style={{ fontWeight: 600, whiteSpace: "pre-wrap" }}>{prescription.MEDICINES}</div>
+                </div>
+                {prescription.INSTRUCTIONS && (
+                  <div>
+                    <small style={{ color: "var(--muted)" }}>INSTRUCTIONS</small>
+                    <div style={{ whiteSpace: "pre-wrap" }}>{prescription.INSTRUCTIONS}</div>
+                  </div>
+                )}
+                <div className="form-actions" style={{ marginTop: 20 }}>
+                  <Btn onClick={() => {
+                    setEditingPresc(true);
+                    setForm({
+                      medicines: prescription.MEDICINES,
+                      instructions: prescription.INSTRUCTIONS || ""
+                    });
+                  }}>✏️ Edit Prescription</Btn>
+                  <Btn variant="ghost" onClick={() => { setViewPrescAppt(null); setPrescription(null); }}>Close</Btn>
+                </div>
+              </div>
+            )
           ) : (
             <div>Loading prescription...</div>
           )}
@@ -3026,6 +3146,11 @@ function DoctorPatients({ toast }) {
   const [viewingPatient, setViewingPatient] = useState(null);
   const [patientVitals, setPatientVitals] = useState([]);
   const [loadingVitals, setLoadingVitals] = useState(false);
+  const [patientPrescriptions, setPatientPrescriptions] = useState([]);
+  const [loadingPrescriptions, setLoadingPrescriptions] = useState(false);
+  const [activePrescription, setActivePrescription] = useState(null);
+  const [editingPresc, setEditingPresc] = useState(false);
+  const [form, setForm] = useState({ medicines: "", instructions: "" });
 
   useEffect(() => {
     api.get("/doctors/me/patients")
@@ -3036,6 +3161,8 @@ function DoctorPatients({ toast }) {
   const viewPatientDetails = async (patient) => {
     setViewingPatient(patient);
     setLoadingVitals(true);
+    setLoadingPrescriptions(true);
+    setPatientPrescriptions([]);
     try {
       const data = await api.get(`/patients/${patient.PATIENT_ID}/vitals`);
       setPatientVitals(data);
@@ -3045,11 +3172,21 @@ function DoctorPatients({ toast }) {
     } finally {
       setLoadingVitals(false);
     }
+
+    try {
+      const data = await api.get(`/prescriptions/patient/${patient.PATIENT_ID}`);
+      setPatientPrescriptions(data);
+    } catch (err) {
+      toast(err.message, "error");
+      setPatientPrescriptions([]);
+    } finally {
+      setLoadingPrescriptions(false);
+    }
   };
 
   return (
     <>
-      <PageHeader title="My Patients" subtitle="View patient records and recorded vitals history." />
+      <PageHeader title="My Patients" subtitle="View patient records, vitals history, and prescriptions." />
       
       <div className="two-columns">
         <Card>
@@ -3104,12 +3241,108 @@ function DoctorPatients({ toast }) {
                   </div>
                 )}
               </div>
+
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, marginTop: 12 }}>
+                <h4>Prescription History</h4>
+                {loadingPrescriptions ? (
+                  <div>Loading prescriptions...</div>
+                ) : patientPrescriptions.length === 0 ? (
+                  <div style={{ fontSize: 13, color: "var(--muted)" }}>No prescriptions found for this patient.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {patientPrescriptions.map(pr => (
+                      <div key={pr.PRESCRIPTION_ID} style={{ padding: 10, background: "var(--surface)", borderRadius: 10, fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div>
+                          <strong>{pr.APPT_DATE} · {pr.APPT_TIME}</strong>
+                          <div style={{ color: "var(--muted)", marginTop: 2 }}>{pr.DOCTOR_NAME} ({pr.SPECIALIZATION})</div>
+                          <div style={{ fontWeight: 600, marginTop: 4 }}>{pr.MEDICINES}</div>
+                          {pr.INSTRUCTIONS && <div style={{ fontStyle: "italic", marginTop: 2 }}>{pr.INSTRUCTIONS}</div>}
+                        </div>
+                        <Btn variant="ghost" style={{ padding: "4px 8px", minHeight: "auto", fontSize: 11 }} onClick={() => {
+                          setActivePrescription(pr);
+                          setEditingPresc(false);
+                        }}>View / Edit</Btn>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <Empty title="No patient selected" detail="Click on a patient from the list to view their profile and vitals." />
           )}
         </Card>
       </div>
+
+      {activePrescription && (
+        <Modal title={`Prescription Details - ${viewingPatient.FIRST_NAME} ${viewingPatient.LAST_NAME}`} onClose={() => { setActivePrescription(null); setEditingPresc(false); }}>
+          {editingPresc ? (
+            <form className="stack" onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await api.put(`/prescriptions/${activePrescription.PRESCRIPTION_ID}`, {
+                  medicines: form.medicines,
+                  instructions: form.instructions
+                });
+                toast("Prescription updated successfully!");
+                setEditingPresc(false);
+                const data = await api.get(`/prescriptions/patient/${viewingPatient.PATIENT_ID}`);
+                setPatientPrescriptions(data);
+                setActivePrescription(null);
+              } catch (err) {
+                toast(err.message, "error");
+              }
+            }}>
+              <Textarea
+                label="Medicines (e.g. Paracetamol 500mg 1-0-1) *"
+                value={form.medicines}
+                onChange={e => setForm({ ...form, medicines: e.target.value })}
+                required
+              />
+              <Textarea
+                label="Instructions"
+                value={form.instructions}
+                onChange={e => setForm({ ...form, instructions: e.target.value })}
+              />
+              <div className="form-actions" style={{ marginTop: 12 }}>
+                <Btn type="submit">Save Changes</Btn>
+                <Btn type="button" variant="ghost" onClick={() => setEditingPresc(false)}>Cancel</Btn>
+              </div>
+            </form>
+          ) : (
+            <div className="stack" style={{ gap: 16 }}>
+              <div>
+                <small style={{ color: "var(--muted)" }}>DATE & TIME</small>
+                <div>{activePrescription.APPT_DATE} · {activePrescription.APPT_TIME}</div>
+              </div>
+              <div>
+                <small style={{ color: "var(--muted)" }}>DOCTOR</small>
+                <div>{activePrescription.DOCTOR_NAME} ({activePrescription.SPECIALIZATION})</div>
+              </div>
+              <div>
+                <small style={{ color: "var(--muted)" }}>MEDICINES</small>
+                <div style={{ fontWeight: 600, whiteSpace: "pre-wrap" }}>{activePrescription.MEDICINES}</div>
+              </div>
+              {activePrescription.INSTRUCTIONS && (
+                <div>
+                  <small style={{ color: "var(--muted)" }}>INSTRUCTIONS</small>
+                  <div style={{ whiteSpace: "pre-wrap" }}>{activePrescription.INSTRUCTIONS}</div>
+                </div>
+              )}
+              <div className="form-actions" style={{ marginTop: 20 }}>
+                <Btn onClick={() => {
+                  setEditingPresc(true);
+                  setForm({
+                    medicines: activePrescription.MEDICINES,
+                    instructions: activePrescription.INSTRUCTIONS || ""
+                  });
+                }}>✏️ Edit Prescription</Btn>
+                <Btn variant="ghost" onClick={() => setActivePrescription(null)}>Close</Btn>
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
     </>
   );
 }
@@ -4655,7 +4888,15 @@ function PortalShell({ session, onLogout, toast, theme, toggleTheme, themeRotati
   const isAdmin = session.user.ROLE === "ADMIN";
   const isDoctor = session.user.ROLE === "DOCTOR";
   const nav = isAdmin ? ADMIN_NAV : (isDoctor ? DOCTOR_NAV : PATIENT_NAV);
-  const [page, setPage] = useState(nav[0][0]);
+  const storageKey = `clinicos_page_${session.user.ROLE}`;
+  const [page, setPageInternal] = useState(() => {
+    const saved = localStorage.getItem(storageKey);
+    return nav.some(([id]) => id === saved) ? saved : nav[0][0];
+  });
+  const setPage = useCallback((newPage) => {
+    setPageInternal(newPage);
+    localStorage.setItem(storageKey, newPage);
+  }, [storageKey]);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

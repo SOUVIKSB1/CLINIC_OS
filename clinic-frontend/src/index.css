@@ -1959,6 +1959,23 @@ tr:hover td {
   animation: pageFadeIn 0.35s ease;
 }
 
+.stepper-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+@media (max-width: 600px) {
+  .stepper-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+  .stepper-actions .btn {
+    width: 100% !important;
+  }
+}
+
 .dept-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
