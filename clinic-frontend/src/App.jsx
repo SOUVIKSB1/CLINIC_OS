@@ -3910,7 +3910,7 @@ function AuthorityTests({ toast }) {
   const [editForm, setEditForm] = useState({ test_name: "", description: "", price: "", preparation: "" });
   const [editingTestState, setEditingTestState] = useState(false);
   const [showAllCatalog, setShowAllCatalog] = useState(false);
-  const [activeTab, setActiveTab] = useState("requests");
+  const [activeTab, setActiveTab] = useState("form");
 
   const TEMPLATES = {
     cbc: "HEMOGLOBIN: 14.1 g/dL (Normal: 13.5 - 17.5)\nRBC COUNT: 4.8 Million/mcL (Normal: 4.3 - 5.9)\nWBC COUNT: 6,800 /mcL (Normal: 4,500 - 11,000)\nPLATELETS: 245,000 /mcL (Normal: 150,000 - 450,000)\nHEMATOCRIT: 42% (Normal: 41% - 50%)\nIMPRESSION: Hemogram parameters are within normal reference bounds.",
@@ -4038,31 +4038,59 @@ function AuthorityTests({ toast }) {
     <>
       <PageHeader title="Diagnostic Requests" subtitle="Manage the test catalog and approve patient bookings." />
       <div className="two-columns">
+        {/* Main Left Column: Patient Requests */}
         <Card>
-          <h2>Add diagnostic test</h2>
-          <form className="stack" onSubmit={addTest}>
-            <Input label="Test name *" value={form.test_name} onChange={event => setForm({ ...form, test_name: event.target.value })} required />
-            <Input label="Price *" type="number" min="0" value={form.price} onChange={event => setForm({ ...form, price: event.target.value })} required />
-            <Input label="Preparation" value={form.preparation} onChange={event => setForm({ ...form, preparation: event.target.value })} />
-            <Textarea label="Description" value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} />
-            <Btn type="submit" disabled={addingTestState}>
-              {addingTestState && <span className="spinner"></span>}
-              {addingTestState ? "Adding..." : "Add test"}
-            </Btn>
-          </form>
-          <p className="muted">{catalog.length} tests currently available.</p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
+            <h2 style={{ margin: 0, fontSize: "16px" }}>Patient requests</h2>
+            {sortedRequests.length > 10 && (
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
+                <input 
+                  type="checkbox" 
+                  checked={showAll} 
+                  onChange={e => setShowAll(e.target.checked)}
+                  style={{ cursor: "pointer" }}
+                />
+                Show All
+              </label>
+            )}
+          </div>
+          {requestsToShow.length === 0 ? (
+            <Empty title="No test requests" detail="" />
+          ) : (
+            requestsToShow.map(item => (
+              <div className="list-row expanded" key={item.BOOKING_ID}>
+                <div>
+                  <strong>{item.PATIENT_NAME} · {item.TEST_NAME}</strong>
+                  <small>{item.BOOKING_DATE} · {money(item.PRICE)}</small>
+                </div>
+                <div className="row-actions">
+                  <Badge status={item.STATUS} />
+                  {item.STATUS === "Pending" && (
+                    <>
+                      <Btn variant="success" onClick={() => mark(item.BOOKING_ID, "Approved")}>Approve</Btn>
+                      <Btn variant="danger" onClick={() => mark(item.BOOKING_ID, "Rejected")}>Reject</Btn>
+                    </>
+                  )}
+                  {item.STATUS === "Approved" && (
+                    <Btn variant="primary" onClick={() => setCompletingTest(item)}>Complete & Report</Btn>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </Card>
 
+        {/* Right Column: Switcher for Catalog / Add & Edit Form */}
         <div className="stack">
-          {/* Catalog / Requests Switch */}
+          {/* Tab Switcher */}
           <div className="auth-tabs" style={{ padding: "4px", marginBottom: "16px" }}>
             <button 
               type="button"
-              className={activeTab === "requests" ? "active" : ""} 
-              onClick={() => setActiveTab("requests")}
+              className={activeTab === "form" ? "active" : ""} 
+              onClick={() => setActiveTab("form")}
               style={{ fontSize: "12px", padding: "8px" }}
             >
-              Patient Requests ({sortedRequests.length})
+              {editingTest ? "Edit Test" : "Add Test"}
             </button>
             <button 
               type="button"
@@ -4074,24 +4102,42 @@ function AuthorityTests({ toast }) {
             </button>
           </div>
 
-          {activeTab === "requests" ? (
-            <Card>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-                <h2 style={{ margin: 0, fontSize: "16px" }}>Patient requests</h2>
-                {sortedRequests.length > 10 && (
-                  <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", fontWeight: "bold", cursor: "pointer", color: "var(--muted)" }}>
-                    <input 
-                      type="checkbox" 
-                      checked={showAll} 
-                      onChange={e => setShowAll(e.target.checked)}
-                      style={{ cursor: "pointer" }}
-                    />
-                    Show All
-                  </label>
-                )}
-              </div>
-              {requestsToShow.length === 0 ? <Empty title="No test requests" detail="" /> : requestsToShow.map(item => <div className="list-row expanded" key={item.BOOKING_ID}><div><strong>{item.PATIENT_NAME} · {item.TEST_NAME}</strong><small>{item.BOOKING_DATE} · {money(item.PRICE)}</small></div><div className="row-actions"><Badge status={item.STATUS} />{item.STATUS === "Pending" && <><Btn variant="success" onClick={() => mark(item.BOOKING_ID, "Approved")}>Approve</Btn><Btn variant="danger" onClick={() => mark(item.BOOKING_ID, "Rejected")}>Reject</Btn></>}{item.STATUS === "Approved" && <Btn variant="primary" onClick={() => setCompletingTest(item)}>Complete & Report</Btn>}</div></div>)}
-            </Card>
+          {activeTab === "form" ? (
+            editingTest ? (
+              <Card>
+                <h2>Edit diagnostic test</h2>
+                <form className="stack" onSubmit={submitEditTest}>
+                  <Input label="Test name *" value={editForm.test_name} onChange={event => setEditForm({ ...editForm, test_name: event.target.value })} required />
+                  <Input label="Price *" type="number" min="0" value={editForm.price} onChange={event => setEditForm({ ...editForm, price: event.target.value })} required />
+                  <Input label="Preparation" value={editForm.preparation} onChange={event => setEditForm({ ...editForm, preparation: event.target.value })} />
+                  <Textarea label="Description" value={editForm.description} onChange={event => setEditForm({ ...editForm, description: event.target.value })} />
+                  <div className="form-actions" style={{ display: 'flex', gap: '10px' }}>
+                    <Btn type="submit" disabled={editingTestState}>
+                      {editingTestState && <span className="spinner"></span>}
+                      {editingTestState ? "Saving..." : "Save Changes"}
+                    </Btn>
+                    <Btn type="button" variant="ghost" onClick={() => { setEditingTest(null); setEditForm({ test_name: "", description: "", price: "", preparation: "" }); }}>
+                      Cancel
+                    </Btn>
+                  </div>
+                </form>
+              </Card>
+            ) : (
+              <Card>
+                <h2>Add diagnostic test</h2>
+                <form className="stack" onSubmit={addTest}>
+                  <Input label="Test name *" value={form.test_name} onChange={event => setForm({ ...form, test_name: event.target.value })} required />
+                  <Input label="Price *" type="number" min="0" value={form.price} onChange={event => setForm({ ...form, price: event.target.value })} required />
+                  <Input label="Preparation" value={form.preparation} onChange={event => setForm({ ...form, preparation: event.target.value })} />
+                  <Textarea label="Description" value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} />
+                  <Btn type="submit" disabled={addingTestState}>
+                    {addingTestState && <span className="spinner"></span>}
+                    {addingTestState ? "Adding..." : "Add test"}
+                  </Btn>
+                </form>
+                <p className="muted">{catalog.length} tests currently available.</p>
+              </Card>
+            )
           ) : (
             <Card>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
@@ -4116,7 +4162,7 @@ function AuthorityTests({ toast }) {
                     <div>
                       <strong>{item.TEST_NAME}</strong>
                       <small>
-                        {money(item.PRICE)} {item.PREPARATION ? `· Preparation: ${item.PREPARATION}` : ""}
+                        {money(item.PRICE)} {item.PREPARATION ? `· Prep: ${item.PREPARATION}` : ""}
                       </small>
                       {item.DESCRIPTION && (
                         <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "var(--muted)", lineHeight: "1.4" }}>
@@ -4186,25 +4232,7 @@ function AuthorityTests({ toast }) {
         </Modal>
       )}
 
-      {editingTest && (
-        <Modal title="Edit Test Details" onClose={() => { setEditingTest(null); setEditForm({ test_name: "", description: "", price: "", preparation: "" }); }}>
-          <form className="stack" onSubmit={submitEditTest}>
-            <Input label="Test name *" value={editForm.test_name} onChange={event => setEditForm({ ...editForm, test_name: event.target.value })} required />
-            <Input label="Price (₹) *" type="number" min="0" value={editForm.price} onChange={event => setEditForm({ ...editForm, price: event.target.value })} required />
-            <Input label="Preparation" value={editForm.preparation} onChange={event => setEditForm({ ...editForm, preparation: event.target.value })} />
-            <Textarea label="Description" value={editForm.description} onChange={event => setEditForm({ ...editForm, description: event.target.value })} />
-            <div className="form-actions" style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-              <Btn type="submit" disabled={editingTestState}>
-                {editingTestState && <span className="spinner"></span>}
-                {editingTestState ? "Saving..." : "Save Changes"}
-              </Btn>
-              <Btn type="button" variant="ghost" onClick={() => { setEditingTest(null); setEditForm({ test_name: "", description: "", price: "", preparation: "" }); }}>
-                Cancel
-              </Btn>
-            </div>
-          </form>
-        </Modal>
-      )}
+
     </>
   );
 }
