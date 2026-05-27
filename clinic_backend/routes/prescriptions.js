@@ -7,7 +7,7 @@ const authorize = require('../middlewares/roleMiddleware');
 
 // POST create a prescription
 router.post('/', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) => {
-  const { appointment_id, medicines, instructions } = req.body;
+  const { appointment_id, medicines, instructions, duration } = req.body;
   if (!appointment_id || !medicines?.trim()) {
     return res.status(400).json({ error: 'appointment_id and medicines are required' });
   }
@@ -32,16 +32,19 @@ router.post('/', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) =>
 
     const { DOCTOR_ID, PATIENT_ID, FIRST_NAME, LAST_NAME, FEES } = apptResult.rows[0];
 
+    const durationVal = duration !== undefined && duration !== null && duration !== '' ? Number(duration) : 7;
+
     // 2. Insert the prescription
     await conn.execute(
-      `INSERT INTO prescriptions (appointment_id, doctor_id, patient_id, medicines, instructions)
-       VALUES (:appointment_id, :doctor_id, :patient_id, :medicines, :instructions)`,
+      `INSERT INTO prescriptions (appointment_id, doctor_id, patient_id, medicines, instructions, duration)
+       VALUES (:appointment_id, :doctor_id, :patient_id, :medicines, :instructions, :duration)`,
       {
         appointment_id,
         doctor_id: DOCTOR_ID,
         patient_id: PATIENT_ID,
         medicines: medicines.trim(),
-        instructions: instructions ? instructions.trim() : null
+        instructions: instructions ? instructions.trim() : null,
+        duration: durationVal
       }
     );
 
@@ -82,7 +85,7 @@ router.get('/appointment/:appt_id', authenticate, async (req, res) => {
   try {
     conn = await getConnection();
     const result = await conn.execute(
-      `SELECT pr.prescription_id, pr.appointment_id, pr.medicines, pr.instructions,
+      `SELECT pr.prescription_id, pr.appointment_id, pr.medicines, pr.instructions, pr.duration,
               TO_CHAR(pr.created_at, 'YYYY-MM-DD HH:MI AM') AS created_at,
               'Dr. ' || d.first_name || ' ' || d.last_name AS doctor_name,
               d.specialization,
@@ -115,7 +118,7 @@ router.get('/patient/:patient_id', authenticate, authorize('ADMIN', 'DOCTOR'), a
   try {
     conn = await getConnection();
     const result = await conn.execute(
-      `SELECT pr.prescription_id, pr.appointment_id, pr.medicines, pr.instructions,
+      `SELECT pr.prescription_id, pr.appointment_id, pr.medicines, pr.instructions, pr.duration,
               TO_CHAR(pr.created_at, 'YYYY-MM-DD HH:MI AM') AS created_at,
               'Dr. ' || d.first_name || ' ' || d.last_name AS doctor_name,
               d.specialization,
@@ -140,7 +143,7 @@ router.get('/patient/:patient_id', authenticate, authorize('ADMIN', 'DOCTOR'), a
 
 // PUT update a prescription
 router.put('/:id', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) => {
-  const { medicines, instructions } = req.body;
+  const { medicines, instructions, duration } = req.body;
   if (!medicines?.trim()) {
     return res.status(400).json({ error: 'Medicines are required' });
   }
@@ -148,13 +151,15 @@ router.put('/:id', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) 
   let conn;
   try {
     conn = await getConnection();
+    const durationVal = duration !== undefined && duration !== null && duration !== '' ? Number(duration) : 7;
     const result = await conn.execute(
       `UPDATE prescriptions 
-       SET medicines = :medicines, instructions = :instructions 
+       SET medicines = :medicines, instructions = :instructions, duration = :duration 
        WHERE prescription_id = :id`,
       {
         medicines: medicines.trim(),
         instructions: instructions ? instructions.trim() : null,
+        duration: durationVal,
         id: req.params.id
       },
       { autoCommit: true }
