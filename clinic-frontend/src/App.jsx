@@ -4037,7 +4037,7 @@ function AuthorityTests({ toast }) {
   return (
     <>
       <PageHeader title="Diagnostic Requests" subtitle="Manage the test catalog and approve patient bookings." />
-      <div className="two-columns">
+      <div className="two-columns" style={{ alignItems: "start" }}>
         {/* Main Left Column: Patient Requests */}
         <Card>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
