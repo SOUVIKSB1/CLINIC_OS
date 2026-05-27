@@ -4199,7 +4199,7 @@ function AuthorityTests({ toast }) {
               onClick={() => setActiveTab("form")}
               style={{ fontSize: "12px", padding: "8px" }}
             >
-              {editingTest ? "Edit Test" : "Add Test"}
+              Add Test
             </button>
             <button 
               type="button"
@@ -4212,41 +4212,20 @@ function AuthorityTests({ toast }) {
           </div>
 
           {activeTab === "form" ? (
-            editingTest ? (
-              <Card>
-                <h2>Edit diagnostic test</h2>
-                <form className="stack" onSubmit={submitEditTest}>
-                  <Input label="Test name *" value={editForm.test_name} onChange={event => setEditForm({ ...editForm, test_name: event.target.value })} required />
-                  <Input label="Price *" type="number" min="0" value={editForm.price} onChange={event => setEditForm({ ...editForm, price: event.target.value })} required />
-                  <Input label="Preparation" value={editForm.preparation} onChange={event => setEditForm({ ...editForm, preparation: event.target.value })} />
-                  <Textarea label="Description" value={editForm.description} onChange={event => setEditForm({ ...editForm, description: event.target.value })} />
-                  <div className="form-actions" style={{ display: 'flex', gap: '10px' }}>
-                    <Btn type="submit" disabled={editingTestState}>
-                      {editingTestState && <span className="spinner"></span>}
-                      {editingTestState ? "Saving..." : "Save Changes"}
-                    </Btn>
-                    <Btn type="button" variant="ghost" onClick={() => { setEditingTest(null); setEditForm({ test_name: "", description: "", price: "", preparation: "" }); }}>
-                      Cancel
-                    </Btn>
-                  </div>
-                </form>
-              </Card>
-            ) : (
-              <Card>
-                <h2>Add diagnostic test</h2>
-                <form className="stack" onSubmit={addTest}>
-                  <Input label="Test name *" value={form.test_name} onChange={event => setForm({ ...form, test_name: event.target.value })} required />
-                  <Input label="Price *" type="number" min="0" value={form.price} onChange={event => setForm({ ...form, price: event.target.value })} required />
-                  <Input label="Preparation" value={form.preparation} onChange={event => setForm({ ...form, preparation: event.target.value })} />
-                  <Textarea label="Description" value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} />
-                  <Btn type="submit" disabled={addingTestState}>
-                    {addingTestState && <span className="spinner"></span>}
-                    {addingTestState ? "Adding..." : "Add test"}
-                  </Btn>
-                </form>
-                <p className="muted">{catalog.length} tests currently available.</p>
-              </Card>
-            )
+            <Card>
+              <h2>Add diagnostic test</h2>
+              <form className="stack" onSubmit={addTest}>
+                <Input label="Test name *" value={form.test_name} onChange={event => setForm({ ...form, test_name: event.target.value })} required />
+                <Input label="Price *" type="number" min="0" value={form.price} onChange={event => setForm({ ...form, price: event.target.value })} required />
+                <Input label="Preparation" value={form.preparation} onChange={event => setForm({ ...form, preparation: event.target.value })} />
+                <Textarea label="Description" value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} />
+                <Btn type="submit" disabled={addingTestState}>
+                  {addingTestState && <span className="spinner"></span>}
+                  {addingTestState ? "Adding..." : "Add test"}
+                </Btn>
+              </form>
+              <p className="muted">{catalog.length} tests currently available.</p>
+            </Card>
           ) : (
             <Card>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
@@ -4341,6 +4320,25 @@ function AuthorityTests({ toast }) {
         </Modal>
       )}
 
+      {editingTest && (
+        <Modal title="Edit Diagnostic Test" onClose={() => { setEditingTest(null); setEditForm({ test_name: "", description: "", price: "", preparation: "" }); }}>
+          <form className="stack" onSubmit={submitEditTest}>
+            <Input label="Test name *" value={editForm.test_name} onChange={event => setEditForm({ ...editForm, test_name: event.target.value })} required />
+            <Input label="Price *" type="number" min="0" value={editForm.price} onChange={event => setEditForm({ ...editForm, price: event.target.value })} required />
+            <Input label="Preparation" value={editForm.preparation} onChange={event => setEditForm({ ...editForm, preparation: event.target.value })} />
+            <Textarea label="Description" value={editForm.description} onChange={event => setEditForm({ ...editForm, description: event.target.value })} />
+            <div className="form-actions" style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+              <Btn type="submit" disabled={editingTestState}>
+                {editingTestState && <span className="spinner"></span>}
+                {editingTestState ? "Saving..." : "Save Changes"}
+              </Btn>
+              <Btn type="button" variant="ghost" onClick={() => { setEditingTest(null); setEditForm({ test_name: "", description: "", price: "", preparation: "" }); }}>
+                Cancel
+              </Btn>
+            </div>
+          </form>
+        </Modal>
+      )}
 
     </>
   );
