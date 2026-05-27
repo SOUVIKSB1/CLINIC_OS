@@ -1468,7 +1468,19 @@ function MyAppointments({ toast }) {
     }
   };
 
-  const itemsToShow = showAll ? items : items.slice(0, 10);
+  const sortedItems = [...items].sort((a, b) => {
+    const isPendingA = a.STATUS === "Pending";
+    const isPendingB = b.STATUS === "Pending";
+    
+    if (isPendingA && !isPendingB) return -1;
+    if (!isPendingA && isPendingB) return 1;
+    
+    const dateA = new Date(a.APPT_DATE || 0);
+    const dateB = new Date(b.APPT_DATE || 0);
+    return dateB - dateA;
+  });
+
+  const itemsToShow = showAll ? sortedItems : sortedItems.slice(0, 10);
 
   return (
     <>
@@ -2941,7 +2953,7 @@ function DoctorAppointments({ toast }) {
   const [prescribeAppt, setPrescribeAppt] = useState(null);
   const [viewPrescAppt, setViewPrescAppt] = useState(null);
   const [prescription, setPrescription] = useState(null);
-  const [form, setForm] = useState({ medicines: "", instructions: "" });
+  const [form, setForm] = useState({ medicines: "", instructions: "", duration: "7" });
   const [editingPresc, setEditingPresc] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
@@ -2950,7 +2962,8 @@ function DoctorAppointments({ toast }) {
     try {
       await api.put(`/prescriptions/${prescription.PRESCRIPTION_ID}`, {
         medicines: form.medicines,
-        instructions: form.instructions
+        instructions: form.instructions,
+        duration: Number(form.duration) || 7
       });
       toast("Prescription updated successfully!");
       setEditingPresc(false);
@@ -2976,11 +2989,12 @@ function DoctorAppointments({ toast }) {
       await api.post("/prescriptions", {
         appointment_id: prescribeAppt.APPT_ID,
         medicines: form.medicines,
-        instructions: form.instructions
+        instructions: form.instructions,
+        duration: Number(form.duration) || 7
       });
       toast("Prescription generated successfully!");
       setPrescribeAppt(null);
-      setForm({ medicines: "", instructions: "" });
+      setForm({ medicines: "", instructions: "", duration: "7" });
       load();
     } catch (err) {
       toast(err.message, "error");
@@ -3070,6 +3084,14 @@ function DoctorAppointments({ toast }) {
               value={form.instructions}
               onChange={e => setForm({ ...form, instructions: e.target.value })}
             />
+            <Input 
+              label="Duration (days) *" 
+              type="number" 
+              min="1" 
+              value={form.duration} 
+              onChange={e => setForm({ ...form, duration: e.target.value })} 
+              required 
+            />
             <div style={{ marginTop: 12 }}>
               <Btn type="submit">Submit Prescription & Complete Appointment</Btn>
             </div>
@@ -3087,10 +3109,11 @@ function DoctorAppointments({ toast }) {
                   await api.post("/prescriptions", {
                     appointment_id: viewPrescAppt.APPT_ID,
                     medicines: form.medicines,
-                    instructions: form.instructions
+                    instructions: form.instructions,
+                    duration: Number(form.duration) || 7
                   });
                   toast("Prescription generated successfully!");
-                  setForm({ medicines: "", instructions: "" });
+                  setForm({ medicines: "", instructions: "", duration: "7" });
                   viewPrescription(viewPrescAppt);
                 } catch (err) {
                   toast(err.message, "error");
@@ -3110,6 +3133,14 @@ function DoctorAppointments({ toast }) {
                   value={form.instructions}
                   onChange={e => setForm({ ...form, instructions: e.target.value })}
                 />
+                <Input 
+                  label="Duration (days) *" 
+                  type="number" 
+                  min="1" 
+                  value={form.duration} 
+                  onChange={e => setForm({ ...form, duration: e.target.value })} 
+                  required 
+                />
                 <div style={{ marginTop: 12 }}>
                   <Btn type="submit">Submit Prescription</Btn>
                 </div>
@@ -3128,6 +3159,14 @@ function DoctorAppointments({ toast }) {
                   placeholder="e.g. Take after meals, complete 5 days course"
                   value={form.instructions}
                   onChange={e => setForm({ ...form, instructions: e.target.value })}
+                />
+                <Input 
+                  label="Duration (days) *" 
+                  type="number" 
+                  min="1" 
+                  value={form.duration} 
+                  onChange={e => setForm({ ...form, duration: e.target.value })} 
+                  required 
                 />
                 <div className="form-actions" style={{ marginTop: 12 }}>
                   <Btn type="submit">Save Changes</Btn>
@@ -3159,7 +3198,8 @@ function DoctorAppointments({ toast }) {
                     setEditingPresc(true);
                     setForm({
                       medicines: prescription.MEDICINES,
-                      instructions: prescription.INSTRUCTIONS || ""
+                      instructions: prescription.INSTRUCTIONS || "",
+                      duration: prescription.DURATION !== undefined ? String(prescription.DURATION) : "7"
                     });
                   }}>✏️ Edit Prescription</Btn>
                   <Btn variant="ghost" onClick={() => { setViewPrescAppt(null); setPrescription(null); }}>Close</Btn>
@@ -3184,7 +3224,7 @@ function DoctorPatients({ toast }) {
   const [loadingPrescriptions, setLoadingPrescriptions] = useState(false);
   const [activePrescription, setActivePrescription] = useState(null);
   const [editingPresc, setEditingPresc] = useState(false);
-  const [form, setForm] = useState({ medicines: "", instructions: "" });
+  const [form, setForm] = useState({ medicines: "", instructions: "", duration: "7" });
 
   useEffect(() => {
     api.get("/doctors/me/patients")
@@ -3316,7 +3356,8 @@ function DoctorPatients({ toast }) {
               try {
                 await api.put(`/prescriptions/${activePrescription.PRESCRIPTION_ID}`, {
                   medicines: form.medicines,
-                  instructions: form.instructions
+                  instructions: form.instructions,
+                  duration: Number(form.duration) || 7
                 });
                 toast("Prescription updated successfully!");
                 setEditingPresc(false);
@@ -3337,6 +3378,14 @@ function DoctorPatients({ toast }) {
                 label="Instructions"
                 value={form.instructions}
                 onChange={e => setForm({ ...form, instructions: e.target.value })}
+              />
+              <Input 
+                label="Duration (days) *" 
+                type="number" 
+                min="1" 
+                value={form.duration} 
+                onChange={e => setForm({ ...form, duration: e.target.value })} 
+                required 
               />
               <div className="form-actions" style={{ marginTop: 12 }}>
                 <Btn type="submit">Save Changes</Btn>
@@ -3368,7 +3417,8 @@ function DoctorPatients({ toast }) {
                   setEditingPresc(true);
                   setForm({
                     medicines: activePrescription.MEDICINES,
-                    instructions: activePrescription.INSTRUCTIONS || ""
+                    instructions: activePrescription.INSTRUCTIONS || "",
+                    duration: activePrescription.DURATION !== undefined ? String(activePrescription.DURATION) : "7"
                   });
                 }}>✏️ Edit Prescription</Btn>
                 <Btn variant="ghost" onClick={() => setActivePrescription(null)}>Close</Btn>
@@ -5009,6 +5059,24 @@ function PillTracker({ toast }) {
     meds.forEach(med => {
       const { name, pattern } = parseDosing(med);
       const activeSlots = SLOTS.filter((_, i) => pattern[i] > 0);
+      
+      const totalSlots = activeSlots.length;
+      const checkedCount = activeSlots.filter(s => doseState[`${p.PRESCRIPTION_ID}_${med}_${s}`]).length;
+
+      // 1. Vanish if completed today
+      if (totalSlots > 0 && checkedCount === totalSlots) {
+        return; // Vanish!
+      }
+
+      // 2. Check expiration (duration in days)
+      const prescDate = new Date(p.CREATED_AT.substring(0, 10));
+      const today = new Date(todayString());
+      const diffDays = Math.floor((today - prescDate) / (1000 * 60 * 60 * 24));
+      const duration = p.DURATION || 7;
+      if (diffDays >= duration) {
+        return; // Expired!
+      }
+
       medCards.push({
         prescId: p.PRESCRIPTION_ID,
         med,
@@ -5016,8 +5084,12 @@ function PillTracker({ toast }) {
         activeSlots,
         pattern,
         doctor: p.DOCTOR_NAME,
-        date: p.CREATED_AT,
+        date: p.CREATED_AT.substring(0, 10),
         instructions: p.INSTRUCTIONS,
+        daysLeft: duration - diffDays,
+        totalSlots,
+        checkedCount,
+        progress: totalSlots > 0 ? (checkedCount / totalSlots) * 100 : 100
       });
     });
   });
@@ -5032,24 +5104,37 @@ function PillTracker({ toast }) {
         </Card>
       ) : (
         <div className="pill-tracker-grid">
-          {medCards.map((item, idx) => {
-            const totalSlots = item.activeSlots.length;
-            const checkedCount = item.activeSlots.filter(s => doseState[`${item.prescId}_${item.med}_${s}`]).length;
-            const progress = totalSlots > 0 ? (checkedCount / totalSlots) * 100 : 100;
+          {medCards.map((item, idx) => (
+            <div className="pill-card horizontal" key={`${item.prescId}-${idx}`} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", flexWrap: "wrap" }}>
+                <div>
+                  <div className="pill-prescription-meta" style={{ marginBottom: "6px", borderBottom: "none", paddingBottom: 0 }}>
+                    <span>💊</span>
+                    <strong>{item.doctor}</strong>
+                    <span>·</span>
+                    <span>{item.date}</span>
+                  </div>
+                  <h3 style={{ margin: "4px 0", fontSize: "17px", fontWeight: 700, color: "var(--text)" }}>{item.displayName}</h3>
+                  {item.instructions && (
+                    <div className="pill-instructions">
+                      📋 {item.instructions}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
+                  {item.daysLeft === 1 ? (
+                    <span className="badge" style={{ background: "rgba(239, 68, 68, 0.15)", color: "#ef4444", fontSize: "11px", fontWeight: "bold" }}>⚠️ Ends today</span>
+                  ) : (
+                    <span className="badge" style={{ background: "rgba(255, 122, 24, 0.15)", color: "#ff7a18", fontSize: "11px", fontWeight: "bold" }}>⏳ {item.daysLeft} days left</span>
+                  )}
+                  <small style={{ fontSize: "11px", color: "var(--muted)" }}>
+                    Pattern: <span style={{ color: "var(--text)", fontWeight: 600 }}>{item.pattern.join("-")}</span>
+                  </small>
+                </div>
+              </div>
 
-            return (
-              <div className="pill-card" key={`${item.prescId}-${idx}`}>
-                <div className="pill-prescription-meta">
-                  <span>💊</span>
-                  <strong>{item.doctor}</strong>
-                  <span>·</span>
-                  <span>{item.date}</span>
-                </div>
-                <div className="pill-card-header">
-                  <h3>{item.displayName}</h3>
-                  <small>{checkedCount}/{totalSlots} doses · <span style={{ color: "var(--muted)", fontWeight: 400 }}>{item.pattern.join("-")}</span></small>
-                </div>
-                <div className="pill-dose-row">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "20px", flexWrap: "wrap", borderTop: "1px solid var(--border)", paddingTop: "12px" }}>
+                <div className="pill-dose-row" style={{ flex: 1 }}>
                   {SLOTS.map((slot, si) => {
                     const isActive = item.pattern[si] > 0;
                     if (!isActive) return null;
@@ -5067,13 +5152,19 @@ function PillTracker({ toast }) {
                     );
                   })}
                 </div>
-                <div className="pill-progress-bar">
-                  <div className="pill-progress-fill" style={{ width: `${progress}%` }} />
+                
+                <div style={{ width: "200px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--muted)" }}>
+                    <span>Today's Progress</span>
+                    <span>{item.checkedCount}/{item.totalSlots} doses</span>
+                  </div>
+                  <div className="pill-progress-bar" style={{ marginTop: 0 }}>
+                    <div className="pill-progress-fill" style={{ width: `${item.progress}%` }} />
+                  </div>
                 </div>
-                {item.instructions && <div className="pill-instructions">📋 {item.instructions}</div>}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </>
