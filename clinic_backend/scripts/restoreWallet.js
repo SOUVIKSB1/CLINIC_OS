@@ -6,6 +6,14 @@ const walletDir = path.join(__dirname, '..', 'wallet');
 function restore() {
   const cwalletB64 = process.env.WALLET_CWALLET_SSO_B64;
   const tnsnamesB64 = process.env.WALLET_TNSNAMES_ORA_B64;
+  const walletLocation = process.env.WALLET_LOCATION;
+
+  console.log('--- Oracle Wallet Diagnostic Info ---');
+  console.log(`WALLET_CWALLET_SSO_B64 present: ${!!cwalletB64}`);
+  console.log(`WALLET_TNSNAMES_ORA_B64 present: ${!!tnsnamesB64}`);
+  console.log(`WALLET_LOCATION: ${walletLocation}`);
+  console.log(`Current working directory: ${process.cwd()}`);
+  console.log('-------------------------------------');
 
   if (!cwalletB64 && !tnsnamesB64) {
     console.log('ℹ️ No wallet environment variables found. Skipping wallet restoration. (This is normal for local development).');
