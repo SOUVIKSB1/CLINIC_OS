@@ -4,23 +4,21 @@ const path = require('path');
 const walletDir = path.join(__dirname, '..', 'wallet');
 
 function restore() {
-  const cwalletB64 = process.env.WALLET_CWALLET_SSO_B64;
-  const tnsnamesB64 = process.env.WALLET_TNSNAMES_ORA_B64;
+  const walletDataB64 = process.env.WALLET_DATA_B64;
   const walletLocation = process.env.WALLET_LOCATION;
 
   console.log('--- Oracle Wallet Diagnostic Info ---');
-  console.log(`WALLET_CWALLET_SSO_B64 present: ${!!cwalletB64}`);
-  console.log(`WALLET_TNSNAMES_ORA_B64 present: ${!!tnsnamesB64}`);
+  console.log(`WALLET_DATA_B64 present: ${!!walletDataB64}`);
   console.log(`WALLET_LOCATION: ${walletLocation}`);
   console.log(`Current working directory: ${process.cwd()}`);
   console.log('-------------------------------------');
 
-  if (!cwalletB64 && !tnsnamesB64) {
-    console.log('ℹ️ No wallet environment variables found. Skipping wallet restoration. (This is normal for local development).');
+  if (!walletDataB64) {
+    console.log('ℹ️ WALLET_DATA_B64 environment variable not found. Skipping wallet restoration. (Normal for local development).');
     return;
   }
 
-  console.log('🔄 Restoring Oracle Wallet files from environment variables...');
+  console.log('🔄 Restoring Oracle Wallet files from WALLET_DATA_B64...');
 
   try {
     if (!fs.existsSync(walletDir)) {
@@ -28,21 +26,17 @@ function restore() {
       console.log(`Created directory: ${walletDir}`);
     }
 
-    if (cwalletB64) {
-      const cwalletBuffer = Buffer.from(cwalletB64, 'base64');
-      fs.writeFileSync(path.join(walletDir, 'cwallet.sso'), cwalletBuffer);
-      console.log('✅ Restored cwallet.sso');
-    } else {
-      console.warn('⚠️ WALLET_CWALLET_SSO_B64 is missing!');
-    }
+    // Decode the entire JSON object from base64
+    const decodedJson = Buffer.from(walletDataB64, 'base64').toString('utf-8');
+    const walletData = JSON.parse(decodedJson);
 
-    if (tnsnamesB64) {
-      const tnsnamesBuffer = Buffer.from(tnsnamesB64, 'base64');
-      fs.writeFileSync(path.join(walletDir, 'tnsnames.ora'), tnsnamesBuffer);
-      console.log('✅ Restored tnsnames.ora');
-    } else {
-      console.warn('⚠️ WALLET_TNSNAMES_ORA_B64 is missing!');
-    }
+    // Reconstruct each file
+    Object.keys(walletData).forEach(filename => {
+      const fileB64 = walletData[filename];
+      const fileBuffer = Buffer.from(fileB64, 'base64');
+      fs.writeFileSync(path.join(walletDir, filename), fileBuffer);
+      console.log(`✅ Restored: ${filename} (${fileBuffer.length} bytes)`);
+    });
 
     console.log('🎉 Oracle Wallet restoration complete.');
   } catch (error) {

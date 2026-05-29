@@ -5,37 +5,53 @@ const walletDir = path.join(__dirname, '..', 'wallet');
 const outputFile = path.join(__dirname, '..', 'render_wallet_env.txt');
 
 function generate() {
-  const cwalletPath = path.join(walletDir, 'cwallet.sso');
-  const tnsnamesPath = path.join(walletDir, 'tnsnames.ora');
-
-  if (!fs.existsSync(cwalletPath) || !fs.existsSync(tnsnamesPath)) {
-    console.error('❌ Error: Oracle Wallet files (cwallet.sso or tnsnames.ora) not found in clinic_backend/wallet.');
-    console.log('Please make sure you have copied them into the clinic_backend/wallet directory.');
+  if (!fs.existsSync(walletDir)) {
+    console.error(`❌ Error: Wallet directory not found at ${walletDir}`);
     process.exit(1);
   }
 
-  const cwalletB64 = fs.readFileSync(cwalletPath).toString('base64');
-  const tnsnamesB64 = fs.readFileSync(tnsnamesPath).toString('base64');
+  const files = fs.readdirSync(walletDir);
+  const walletData = {};
 
-  const outputContent = `=== RENDER ENVIRONMENT VARIABLES ===
+  // Files to ignore
+  const ignoreFiles = ['.DS_Store', 'README', '.afiedt.buf.swp', 'afiedt.buf'];
 
-Name: WALLET_CWALLET_SSO_B64
+  files.forEach(file => {
+    if (ignoreFiles.includes(file)) return;
+    
+    const filePath = path.join(walletDir, file);
+    const stat = fs.statSync(filePath);
+    
+    if (stat.isFile()) {
+      const content = fs.readFileSync(filePath);
+      walletData[file] = content.toString('base64');
+      console.log(`📦 Packaged: ${file} (${content.length} bytes)`);
+    }
+  });
+
+  if (Object.keys(walletData).length === 0) {
+    console.error('❌ Error: No wallet files found to package.');
+    process.exit(1);
+  }
+
+  // Convert the JSON object to a string, then base64 encode the entire JSON
+  const jsonString = JSON.stringify(walletData);
+  const finalB64 = Buffer.from(jsonString).toString('base64');
+
+  const outputContent = `=== RENDER ENVIRONMENT VARIABLE ===
+
+Name: WALLET_DATA_B64
 Value:
-${cwalletB64}
+${finalB64}
 
-=======================================
-
-Name: WALLET_TNSNAMES_ORA_B64
-Value:
-${tnsnamesB64}
-
-=======================================
-Copy the above values and paste them into the "Environment Variables" section of your Render service dashboard.
+===================================
+Copy the above value and paste it as a single environment variable in Render.
+You can delete any old WALLET_CWALLET_SSO_B64 or WALLET_TNSNAMES_ORA_B64 variables from Render.
 `;
 
   fs.writeFileSync(outputFile, outputContent);
-  console.log('✅ Base64 strings generated successfully!');
-  console.log(`Open file://${outputFile} to copy the values.`);
+  console.log('\n✅ Single-variable Base64 package generated successfully!');
+  console.log(`Open file://${outputFile} to copy the value.`);
 }
 
 generate();
