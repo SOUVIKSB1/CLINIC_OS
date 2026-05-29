@@ -4,7 +4,7 @@ const path = require('path');
 const walletDir = path.join(__dirname, '..', 'wallet');
 
 function restore() {
-  let walletDataB64 = process.env.WALLET_DATA_B64;
+  let walletDataB64 = process.env.WALLET_DATA_B64 || process.env['wallet_data.b64'] || process.env.wallet_data_b64;
   const walletLocation = process.env.WALLET_LOCATION;
 
   // Render secret file paths
