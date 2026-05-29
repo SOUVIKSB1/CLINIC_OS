@@ -9,9 +9,14 @@ clinic_backend/node_modules/
 .env.*.local
 clinic_backend/.env
 
+# Oracle Wallet
+clinic_backend/wallet/
+
 # Build outputs
 clinic-frontend/dist/
 
-# System files
+# System and editor files
 .DS_Store
 Thumbs.db
+*.swp
+*.buf
