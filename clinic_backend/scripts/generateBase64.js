@@ -38,15 +38,22 @@ function generate() {
   const jsonString = JSON.stringify(walletData);
   const finalB64 = Buffer.from(jsonString).toString('base64');
 
-  const outputContent = `=== RENDER ENVIRONMENT VARIABLE ===
+  const outputContent = `=== RENDER SETUP OPTIONS ===
 
+OPTION A: RENDER SECRET FILE (Recommended - bypasses size limits)
+Filename: wallet_data.b64
+Contents:
+${finalB64}
+
+===================================
+
+OPTION B: ENVIRONMENT VARIABLE
 Name: WALLET_DATA_B64
 Value:
 ${finalB64}
 
 ===================================
-Copy the above value and paste it as a single environment variable in Render.
-You can delete any old WALLET_CWALLET_SSO_B64 or WALLET_TNSNAMES_ORA_B64 variables from Render.
+Copy the long string above. We recommend using OPTION A (Secret File) because some hosting environments restrict environment variable sizes to 4KB.
 `;
 
   fs.writeFileSync(outputFile, outputContent);

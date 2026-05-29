@@ -4,17 +4,39 @@ const path = require('path');
 const walletDir = path.join(__dirname, '..', 'wallet');
 
 function restore() {
-  const walletDataB64 = process.env.WALLET_DATA_B64;
+  let walletDataB64 = process.env.WALLET_DATA_B64;
   const walletLocation = process.env.WALLET_LOCATION;
 
+  // Render secret file paths
+  const secretPaths = [
+    '/etc/secrets/wallet_data.b64',
+    path.join(__dirname, '..', 'wallet_data.b64'),
+    path.join(process.cwd(), 'wallet_data.b64')
+  ];
+
+  // If environment variable is not present, check Secret Files
+  if (!walletDataB64) {
+    for (const secretPath of secretPaths) {
+      if (fs.existsSync(secretPath)) {
+        try {
+          walletDataB64 = fs.readFileSync(secretPath, 'utf8').trim();
+          console.log(`✅ Loaded wallet package from Secret File: ${secretPath}`);
+          break;
+        } catch (e) {
+          console.error(`⚠️ Failed to read Secret File at ${secretPath}:`, e.message);
+        }
+      }
+    }
+  }
+
   console.log('--- Oracle Wallet Diagnostic Info ---');
-  console.log(`WALLET_DATA_B64 present: ${!!walletDataB64}`);
+  console.log(`WALLET_DATA_B64 resolved: ${!!walletDataB64}`);
   console.log(`WALLET_LOCATION: ${walletLocation}`);
   console.log(`Current working directory: ${process.cwd()}`);
   console.log('-------------------------------------');
 
   if (!walletDataB64) {
-    console.log('ℹ️ WALLET_DATA_B64 environment variable not found. Skipping wallet restoration. (Normal for local development).');
+    console.log('ℹ️ No wallet data source found (env or secret file). Skipping wallet restoration. (Normal for local development).');
     return;
   }
 
