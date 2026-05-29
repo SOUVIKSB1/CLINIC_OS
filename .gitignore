@@ -21,3 +21,4 @@ Thumbs.db
 *.swp
 *.buf
 .git_backup/
+clinic_backend/render_wallet_env.txt
