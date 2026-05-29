@@ -20,3 +20,4 @@ clinic-frontend/dist/
 Thumbs.db
 *.swp
 *.buf
+.git_backup/
