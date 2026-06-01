@@ -1257,6 +1257,28 @@ function PatientBooking({ toast, setPage }) {
 
   const slots = ["09:00 AM", "09:30 AM", "10:00 AM", "11:00 AM", "12:00 PM", "02:00 PM", "03:00 PM", "04:00 PM"];
 
+  // Returns true if the given slot string (e.g. "09:00 AM") is still in the future
+  // relative to right now, but only when the selected date is today.
+  const isSlotAvailable = (slot) => {
+    if (!form.appt_date) return true;
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm   = String(today.getMonth() + 1).padStart(2, '0');
+    const dd   = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    if (form.appt_date !== todayStr) return true; // future date — all slots valid
+
+    // Parse slot string into total minutes since midnight
+    const [timePart, period] = slot.split(' ');
+    const [rawH, rawM] = timePart.split(':').map(Number);
+    let slotH = rawH % 12 + (period === 'PM' ? 12 : 0);
+    const slotMinutes = slotH * 60 + rawM;
+    const nowMinutes  = today.getHours() * 60 + today.getMinutes();
+    return slotMinutes > nowMinutes;
+  };
+
+  const availableSlots = slots.filter(isSlotAvailable);
+
   const filteredDepts = departments.filter(d => d.DEPT_NAME.toLowerCase().includes(deptSearch.toLowerCase()));
 
   if (successMsg) {
@@ -1368,17 +1390,33 @@ function PatientBooking({ toast, setPage }) {
               {form.appt_date && (
                 <div style={{ animation: "pageFadeIn 0.3s ease" }}>
                   <h3 style={{ marginBottom: "12px", fontSize: "15px" }}>Select Time Slot</h3>
-                  <div className="slot-grid">
-                    {slots.map(slot => (
-                      <div 
-                        key={slot} 
-                        className={`slot-chip ${form.appt_time === slot ? "active" : ""}`}
-                        onClick={() => setForm({ ...form, appt_time: slot })}
-                      >
-                        {slot}
-                      </div>
-                    ))}
-                  </div>
+                  {availableSlots.length === 0 ? (
+                    <div style={{
+                      textAlign: "center",
+                      padding: "20px 16px",
+                      background: "var(--surface-alt, rgba(255,255,255,0.04))",
+                      borderRadius: "10px",
+                      border: "1px dashed var(--border)",
+                      color: "var(--muted)",
+                      fontSize: "13px"
+                    }}>
+                      <span style={{ fontSize: "22px", display: "block", marginBottom: "6px" }}>🕐</span>
+                      All time slots for today have passed.<br />
+                      <strong style={{ color: "var(--primary)" }}>Please select a future date</strong> to book an appointment.
+                    </div>
+                  ) : (
+                    <div className="slot-grid">
+                      {availableSlots.map(slot => (
+                        <div 
+                          key={slot} 
+                          className={`slot-chip ${form.appt_time === slot ? "active" : ""}`}
+                          onClick={() => setForm({ ...form, appt_time: slot })}
+                        >
+                          {slot}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
