@@ -5681,8 +5681,14 @@ export default function App() {
   const closeToast = useCallback(() => setNotice({ msg: "", type: "success" }), []);
 
   useEffect(() => {
-    // Quietly wake up the Render backend on page load
-    api.get("/health").catch(() => {});
+    // ── Keep Render backend alive ──────────────────────────────────────────
+    // Immediately wake the server on page load, then ping every 10 min so
+    // Render's free tier never hits the 15-min inactivity shutdown.
+    const ping = () => api.get("/health").catch(() => {});
+    ping(); // immediate wake-up call
+    const keepAliveTimer = setInterval(ping, 10 * 60 * 1000); // every 10 min
+    return () => clearInterval(keepAliveTimer);
+    // ──────────────────────────────────────────────────────────────────────
   }, []);
 
   // Global Theme switcher
