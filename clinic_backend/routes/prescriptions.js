@@ -22,7 +22,7 @@ router.post('/', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) =>
        FROM appointments a
        JOIN doctors d ON a.doctor_id = d.doctor_id
        WHERE a.appt_id = $1`,
-      [appointment_id]
+      [Number(appointment_id)]
     );
 
     if (apptResult.rows.length === 0) {
@@ -38,9 +38,9 @@ router.post('/', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) =>
       `INSERT INTO prescriptions (appointment_id, doctor_id, patient_id, medicines, instructions, duration)
        VALUES ($1, $2, $3, $4, $5, $6)`,
       [
-        appointment_id,
-        DOCTOR_ID,
-        PATIENT_ID,
+        Number(appointment_id),
+        Number(DOCTOR_ID),
+        Number(PATIENT_ID),
         medicines.trim(),
         instructions ? instructions.trim() : null,
         durationVal
@@ -50,7 +50,7 @@ router.post('/', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) =>
     // 3. Mark appointment as Completed
     await conn.execute(
       `UPDATE appointments SET status = 'Completed' WHERE appt_id = $1`,
-      [appointment_id]
+      [Number(appointment_id)]
     );
 
     // 4. Generate bill automatically if doctor has fees > 0
@@ -60,8 +60,8 @@ router.post('/', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) =>
         `INSERT INTO bills (patient_id, appointment_id, description, total_amount, payment_status, due_date)
          VALUES ($1, $2, $3, $4, 'Pending', CURRENT_DATE + INTERVAL '7 days')`,
         [
-          PATIENT_ID,
-          appointment_id,
+          Number(PATIENT_ID),
+          Number(appointment_id),
           description,
           Number(FEES)
         ]
@@ -86,16 +86,16 @@ router.get('/appointment/:appt_id', authenticate, async (req, res) => {
     const result = await conn.execute(
       `SELECT pr.prescription_id, pr.appointment_id, pr.medicines, pr.instructions, pr.duration,
               TO_CHAR(pr.created_at, 'YYYY-MM-DD HH12:MI AM') AS created_at,
-              'Dr. ' || d.first_name || ' ' || d.last_name AS doctor_name,
+              CONCAT('Dr. ', d.first_name, ' ', d.last_name) AS doctor_name,
               d.specialization,
-              p.first_name || ' ' || p.last_name AS patient_name,
+              CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
               TO_CHAR(a.appt_date, 'YYYY-MM-DD') AS appt_date, a.appt_time
        FROM prescriptions pr
        JOIN appointments a ON pr.appointment_id = a.appt_id
        JOIN doctors d ON pr.doctor_id = d.doctor_id
        JOIN patients p ON pr.patient_id = p.patient_id
        WHERE pr.appointment_id = $1`,
-      [req.params.appt_id]
+      [Number(req.params.appt_id)]
     );
 
     if (result.rows.length === 0) {
@@ -118,9 +118,9 @@ router.get('/patient/:patient_id', authenticate, authorize('ADMIN', 'DOCTOR'), a
     const result = await conn.execute(
       `SELECT pr.prescription_id, pr.appointment_id, pr.medicines, pr.instructions, pr.duration,
               TO_CHAR(pr.created_at, 'YYYY-MM-DD HH12:MI AM') AS created_at,
-              'Dr. ' || d.first_name || ' ' || d.last_name AS doctor_name,
+              CONCAT('Dr. ', d.first_name, ' ', d.last_name) AS doctor_name,
               d.specialization,
-              p.first_name || ' ' || p.last_name AS patient_name,
+              CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
               TO_CHAR(a.appt_date, 'YYYY-MM-DD') AS appt_date, a.appt_time
        FROM prescriptions pr
        JOIN appointments a ON pr.appointment_id = a.appt_id
@@ -128,7 +128,7 @@ router.get('/patient/:patient_id', authenticate, authorize('ADMIN', 'DOCTOR'), a
        JOIN patients p ON pr.patient_id = p.patient_id
        WHERE pr.patient_id = $1
        ORDER BY a.appt_date DESC, pr.created_at DESC`,
-      [req.params.patient_id]
+      [Number(req.params.patient_id)]
     );
     res.json(result.rows);
   } catch (err) {
@@ -157,7 +157,7 @@ router.put('/:id', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) 
         medicines.trim(),
         instructions ? instructions.trim() : null,
         durationVal,
-        req.params.id
+        Number(req.params.id)
       ]
     );
 

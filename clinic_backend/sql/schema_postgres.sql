@@ -121,8 +121,18 @@ CREATE TABLE IF NOT EXISTS prescriptions (
     patient_id INTEGER NOT NULL REFERENCES patients(patient_id) ON DELETE CASCADE,
     medicines VARCHAR(1000),
     instructions VARCHAR(1000),
+    duration INTEGER DEFAULT 7,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Ensure all optional/upgrade columns exist on existing databases
+ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 7;
+ALTER TABLE doctors ADD COLUMN IF NOT EXISTS fees NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE patient_tests ADD COLUMN IF NOT EXISTS results VARCHAR(2000);
+ALTER TABLE patient_tests ADD COLUMN IF NOT EXISTS notes VARCHAR(500);
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS due_date DATE;
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS booking_id INTEGER;
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS appointment_id INTEGER;
 
 -- 10. Payments Table
 CREATE TABLE IF NOT EXISTS payments (
