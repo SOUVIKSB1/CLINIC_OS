@@ -27,21 +27,30 @@ function normalizeRows(rows) {
 }
 
 /**
- * Converts named parameters (:name) or Oracle-style queries to Postgres ($1, $2, ...)
+ * Converts named parameters (:name) or legacy queries to Postgres ($1, $2, ...)
+ * Safely ignores Postgres type casts like $2::date or STRING_AGG.
  */
 function convertOracleQueryToPostgres(sql, params) {
   let convertedSql = sql;
   let convertedParams = [];
 
-  // Replace Oracle-specific keywords/functions
+  // If query already uses standard Postgres $1, $2...
+  if (/\$[0-9]+/.test(sql)) {
+    return {
+      sql: convertedSql,
+      params: Array.isArray(params) ? params : (params && typeof params === 'object' ? Object.values(params) : [])
+    };
+  }
+
+  // Replace legacy Oracle-specific keywords/functions
   convertedSql = convertedSql
-    .replace(/SYSDATE/gi, 'CURRENT_TIMESTAMP')
-    .replace(/TRUNC\(CURRENT_TIMESTAMP\)/gi, 'CURRENT_DATE')
-    .replace(/TRUNC\(SYSDATE\)/gi, 'CURRENT_DATE')
-    .replace(/NVL\(/gi, 'COALESCE(')
-    .replace(/VARCHAR2/gi, 'VARCHAR')
-    .replace(/NUMBER/gi, 'NUMERIC')
-    .replace(/FROM\s+dual/gi, '');
+    .replace(/\bSYSDATE\b/gi, 'CURRENT_TIMESTAMP')
+    .replace(/\bTRUNC\s*\(\s*CURRENT_TIMESTAMP\s*\)/gi, 'CURRENT_DATE')
+    .replace(/\bTRUNC\s*\(\s*SYSDATE\s*\)/gi, 'CURRENT_DATE')
+    .replace(/\bNVL\s*\(/gi, 'COALESCE(')
+    .replace(/\bVARCHAR2\b/gi, 'VARCHAR')
+    .replace(/\bNUMBER\b/gi, 'NUMERIC')
+    .replace(/\bFROM\s+dual\b/gi, '');
 
   // Remove Oracle RETURNING ... INTO ... syntax in favor of Postgres RETURNING ...
   convertedSql = convertedSql.replace(/RETURNING\s+([a-zA-Z0-9_,\s]+)\s+INTO\s+:[a-zA-Z0-9_]+/gi, 'RETURNING $1');
@@ -49,21 +58,19 @@ function convertOracleQueryToPostgres(sql, params) {
   if (Array.isArray(params)) {
     // Positional parameters :1, :2 or ? or array
     let paramIndex = 1;
-    convertedSql = convertedSql.replace(/:([a-zA-Z0-9_]+)|\?/g, () => {
+    // Replace colons only when not part of a postgres cast (e.g. not preceded or followed by colon)
+    convertedSql = convertedSql.replace(/(?<!:):([a-zA-Z0-9_]+)(?!:)|\?/g, () => {
       return `$${paramIndex++}`;
     });
     convertedParams = [...params];
   } else if (params && typeof params === 'object') {
     // Named parameters like { first_name: 'John', email: 'a@b.com' }
     let paramIndex = 1;
-    const keyMap = {};
-    convertedSql = convertedSql.replace(/:([a-zA-Z0-9_]+)/g, (match, paramName) => {
+    convertedSql = convertedSql.replace(/(?<!:):([a-zA-Z0-9_]+)(?!:)/g, (match, paramName) => {
       const lowerName = paramName.toLowerCase();
-      // Find matching key in params (case-insensitive)
       const matchedKey = Object.keys(params).find(k => k.toLowerCase() === lowerName);
       if (matchedKey !== undefined) {
         const val = params[matchedKey];
-        // If it's an outBind object from old oracle code, ignore or extract
         if (val && typeof val === 'object' && val.dir !== undefined) {
           return match;
         }
@@ -74,7 +81,7 @@ function convertOracleQueryToPostgres(sql, params) {
     });
   }
 
-  // Remove TO_DATE(:var, 'YYYY-MM-DD') wrappers in Postgres as Postgres casts strings to DATE/TIMESTAMP automatically
+  // Remove TO_DATE(:var, 'YYYY-MM-DD') wrappers in Postgres as Postgres casts strings to DATE automatically
   convertedSql = convertedSql.replace(/TO_DATE\(\s*(\$[0-9]+)\s*,\s*'[^']+'\s*\)/gi, '$1::date');
 
   return { sql: convertedSql, params: convertedParams };
@@ -207,6 +214,7 @@ async function getConnection() {
       return {
         rows: normalizedRows,
         rowCount: res.rowCount,
+        rowsAffected: res.rowCount,
         outBinds: res.rows && res.rows[0] ? {
           patient_id: [res.rows[0].patient_id || res.rows[0].PATIENT_ID],
           user_id: [res.rows[0].user_id || res.rows[0].USER_ID],
@@ -220,7 +228,9 @@ async function getConnection() {
       };
     },
     async commit() {
-      await client.query('COMMIT');
+      try {
+        await client.query('COMMIT');
+      } catch (_) {}
     },
     async rollback() {
       try {
