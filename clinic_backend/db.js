@@ -141,19 +141,33 @@ async function initDatabase() {
 
     if (checkRes.rows.length === 0) {
       console.log('🔄 Initializing PostgreSQL database tables...');
-      const schemaPath = path.resolve(__dirname, '../sql/schema_postgres.sql');
-      if (fs.existsSync(schemaPath)) {
+      const possibleSchemaPaths = [
+        path.resolve(__dirname, './sql/schema_postgres.sql'),
+        path.resolve(__dirname, '../sql/schema_postgres.sql'),
+        path.resolve(__dirname, '../../sql/schema_postgres.sql'),
+        path.resolve(process.cwd(), 'sql/schema_postgres.sql'),
+        path.resolve(process.cwd(), 'clinic_backend/sql/schema_postgres.sql')
+      ];
+      const schemaPath = possibleSchemaPaths.find(p => fs.existsSync(p));
+      if (schemaPath) {
         const schemaSql = fs.readFileSync(schemaPath, 'utf8');
         await client.query(schemaSql);
-        console.log('✅ Schema initialized successfully');
+        console.log(`✅ Schema initialized successfully from ${path.basename(schemaPath)}`);
       }
 
       // Seed core reference data
-      const seedPath = path.resolve(__dirname, '../sql/seed_postgres.sql');
-      if (fs.existsSync(seedPath)) {
+      const possibleSeedPaths = [
+        path.resolve(__dirname, './sql/seed_postgres.sql'),
+        path.resolve(__dirname, '../sql/seed_postgres.sql'),
+        path.resolve(__dirname, '../../sql/seed_postgres.sql'),
+        path.resolve(process.cwd(), 'sql/seed_postgres.sql'),
+        path.resolve(process.cwd(), 'clinic_backend/sql/seed_postgres.sql')
+      ];
+      const seedPath = possibleSeedPaths.find(p => fs.existsSync(p));
+      if (seedPath) {
         const seedSql = fs.readFileSync(seedPath, 'utf8');
         await client.query(seedSql);
-        console.log('✅ Default reference data seeded');
+        console.log(`✅ Default reference data seeded from ${path.basename(seedPath)}`);
       }
     }
 

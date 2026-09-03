@@ -51,18 +51,30 @@ async function main() {
     conn = await getConnection();
     console.log('🚀 Running PostgreSQL schema migration & seed...');
 
-    const schemaPath = path.resolve(__dirname, '../../sql/schema_postgres.sql');
-    if (fs.existsSync(schemaPath)) {
+    const possibleSchemaPaths = [
+      path.resolve(__dirname, '../sql/schema_postgres.sql'),
+      path.resolve(__dirname, '../../sql/schema_postgres.sql'),
+      path.resolve(process.cwd(), 'sql/schema_postgres.sql'),
+      path.resolve(process.cwd(), 'clinic_backend/sql/schema_postgres.sql')
+    ];
+    const schemaPath = possibleSchemaPaths.find(p => fs.existsSync(p));
+    if (schemaPath) {
       const schemaSql = fs.readFileSync(schemaPath, 'utf8');
       await conn.execute(schemaSql);
-      console.log('✅ Tables and relations verified');
+      console.log(`✅ Tables and relations verified from ${path.basename(schemaPath)}`);
     }
 
-    const seedPath = path.resolve(__dirname, '../../sql/seed_postgres.sql');
-    if (fs.existsSync(seedPath)) {
+    const possibleSeedPaths = [
+      path.resolve(__dirname, '../sql/seed_postgres.sql'),
+      path.resolve(__dirname, '../../sql/seed_postgres.sql'),
+      path.resolve(process.cwd(), 'sql/seed_postgres.sql'),
+      path.resolve(process.cwd(), 'clinic_backend/sql/seed_postgres.sql')
+    ];
+    const seedPath = possibleSeedPaths.find(p => fs.existsSync(p));
+    if (seedPath) {
       const seedSql = fs.readFileSync(seedPath, 'utf8');
       await conn.execute(seedSql);
-      console.log('✅ Base catalog & departments verified');
+      console.log(`✅ Base catalog & departments verified from ${path.basename(seedPath)}`);
     }
 
     await seedVitals(conn);
