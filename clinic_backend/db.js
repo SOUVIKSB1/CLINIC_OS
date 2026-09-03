@@ -161,21 +161,21 @@ async function initDatabase() {
         await client.query(schemaSql);
         console.log(`✅ Schema initialized successfully from ${path.basename(schemaPath)}`);
       }
+    }
 
-      // Seed core reference data
-      const possibleSeedPaths = [
-        path.resolve(__dirname, './sql/seed_postgres.sql'),
-        path.resolve(__dirname, '../sql/seed_postgres.sql'),
-        path.resolve(__dirname, '../../sql/seed_postgres.sql'),
-        path.resolve(process.cwd(), 'sql/seed_postgres.sql'),
-        path.resolve(process.cwd(), 'clinic_backend/sql/seed_postgres.sql')
-      ];
-      const seedPath = possibleSeedPaths.find(p => fs.existsSync(p));
-      if (seedPath) {
-        const seedSql = fs.readFileSync(seedPath, 'utf8');
-        await client.query(seedSql);
-        console.log(`✅ Default reference data seeded from ${path.basename(seedPath)}`);
-      }
+    // Always ensure latest departments, doctors, and lab test catalog are seeded
+    const possibleSeedPaths = [
+      path.resolve(__dirname, './sql/seed_postgres.sql'),
+      path.resolve(__dirname, '../sql/seed_postgres.sql'),
+      path.resolve(__dirname, '../../sql/seed_postgres.sql'),
+      path.resolve(process.cwd(), 'sql/seed_postgres.sql'),
+      path.resolve(process.cwd(), 'clinic_backend/sql/seed_postgres.sql')
+    ];
+    const seedPath = possibleSeedPaths.find(p => fs.existsSync(p));
+    if (seedPath) {
+      const seedSql = fs.readFileSync(seedPath, 'utf8');
+      await client.query(seedSql);
+      console.log(`✅ Reference catalog synced (30 Doctors & Diagnostic Tests) from ${path.basename(seedPath)}`);
     }
 
     // Ensure initial administrator exists if configured
