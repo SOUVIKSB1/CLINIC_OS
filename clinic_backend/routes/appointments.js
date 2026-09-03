@@ -1,7 +1,6 @@
 // routes/appointments.js
 const express    = require('express');
 const router     = express.Router();
-const oracledb   = require('oracledb');
 const { getConnection } = require('../db');
 const authenticate = require('../middlewares/authMiddleware');
 const authorize = require('../middlewares/roleMiddleware');
@@ -30,9 +29,7 @@ router.get('/', authenticate, authorize('ADMIN'), async (req, res) => {
        JOIN doctors     d  ON a.doctor_id  = d.doctor_id
        JOIN departments dp ON a.dept_id    = dp.dept_id
        LEFT JOIN prescriptions pr ON a.appt_id = pr.appointment_id
-       ORDER BY a.appt_date DESC, a.appt_time`,
-      [],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+       ORDER BY a.appt_date DESC, a.appt_time`
     );
     res.json(result.rows);
   } catch (err) {
@@ -57,10 +54,9 @@ async function getPatientAppointments(req, res, patientId) {
        JOIN doctors     d  ON a.doctor_id = d.doctor_id
        JOIN departments dp ON a.dept_id   = dp.dept_id
        LEFT JOIN prescriptions pr ON a.appt_id = pr.appointment_id
-       WHERE a.patient_id = :patient_id
+       WHERE a.patient_id = $1
        ORDER BY a.appt_date DESC`,
-      [patientId],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [patientId]
     );
     res.json(result.rows);
   } catch (err) {
@@ -87,10 +83,9 @@ router.get('/doctor/:doctor_id', authenticate, authorize('ADMIN'), async (req, r
               a.appt_time, a.status, a.reason
        FROM appointments a
        JOIN patients p ON a.patient_id = p.patient_id
-       WHERE a.doctor_id = :doctor_id
+       WHERE a.doctor_id = $1
        ORDER BY a.appt_date`,
-      [req.params.doctor_id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [req.params.doctor_id]
     );
     res.json(result.rows);
   } catch (err) {
@@ -110,15 +105,14 @@ router.post('/', authenticate, authorize('PATIENT'), async (req, res) => {
   try {
     conn = await getConnection();
     const doctorResult = await conn.execute(
-      `SELECT first_name, last_name, available_days, dept_id FROM doctors WHERE doctor_id = :doctor_id`,
-      { doctor_id },
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      `SELECT first_name, last_name, available_days, dept_id FROM doctors WHERE doctor_id = $1`,
+      [doctor_id]
     );
     if (doctorResult.rows.length === 0)
       return res.status(404).json({ error: 'Selected doctor not found' });
       
     const doctor = doctorResult.rows[0];
-    if (doctor.DEPT_ID !== Number(dept_id))
+    if (Number(doctor.DEPT_ID) !== Number(dept_id))
       return res.status(400).json({ error: 'The selected doctor does not belong to this department' });
 
     if (doctor.AVAILABLE_DAYS) {
@@ -157,20 +151,18 @@ router.post('/', authenticate, authorize('PATIENT'), async (req, res) => {
 
     const occupied = await conn.execute(
       `SELECT COUNT(*) AS total FROM appointments
-       WHERE doctor_id = :doctor_id
-         AND appt_date = TO_DATE(:appt_date,'YYYY-MM-DD')
-         AND appt_time = :appt_time
+       WHERE doctor_id = $1
+         AND appt_date = $2::date
+         AND appt_time = $3
          AND status IN ('Pending', 'Approved', 'Scheduled')`,
-      { doctor_id, appt_date, appt_time },
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [doctor_id, appt_date, appt_time]
     );
-    if (occupied.rows[0].TOTAL > 0)
+    if (parseInt(occupied.rows[0].TOTAL, 10) > 0)
       return res.status(409).json({ error: 'This time slot is already booked for the selected doctor' });
     await conn.execute(
       `INSERT INTO appointments (patient_id, doctor_id, dept_id, appt_date, appt_time, status, reason, notes)
-       VALUES (:patient_id, :doctor_id, :dept_id, TO_DATE(:appt_date,'YYYY-MM-DD'), :appt_time, 'Pending', :reason, :notes)`,
-      { patient_id, doctor_id, dept_id, appt_date, appt_time, reason, notes },
-      { autoCommit: true }
+       VALUES ($1, $2, $3, $4::date, $5, 'Pending', $6, $7)`,
+      [patient_id, doctor_id, dept_id, appt_date, appt_time, reason || null, notes || null]
     );
     res.status(201).json({ message: 'Appointment request sent for approval' });
   } catch (err) {
@@ -190,11 +182,10 @@ router.put('/:id/status', authenticate, authorize('ADMIN'), async (req, res) => 
   try {
     conn = await getConnection();
     const result = await conn.execute(
-      `UPDATE appointments SET status = :status WHERE appt_id = :id`,
-      { status, id: req.params.id },
-      { autoCommit: true }
+      `UPDATE appointments SET status = $1 WHERE appt_id = $2`,
+      [status, req.params.id]
     );
-    if (result.rowsAffected === 0)
+    if (result.rowCount === 0)
       return res.status(404).json({ error: 'Appointment not found' });
     res.json({ message: `Appointment marked as ${status}` });
   } catch (err) {
@@ -211,12 +202,11 @@ router.put('/:id/cancel', authenticate, authorize('PATIENT'), async (req, res) =
     conn = await getConnection();
     const result = await conn.execute(
       `UPDATE appointments SET status = 'Cancelled'
-       WHERE appt_id = :id AND patient_id = :patient_id
+       WHERE appt_id = $1 AND patient_id = $2
          AND status IN ('Pending', 'Approved', 'Scheduled')`,
-      { id: req.params.id, patient_id: req.user.patientId },
-      { autoCommit: true }
+      [req.params.id, req.user.patientId]
     );
-    if (result.rowsAffected === 0)
+    if (result.rowCount === 0)
       return res.status(404).json({ error: 'Open appointment request not found' });
     res.json({ message: 'Appointment request cancelled' });
   } catch (err) {
@@ -232,11 +222,10 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     conn = await getConnection();
     const result = await conn.execute(
-      `DELETE FROM appointments WHERE appt_id = :id`,
-      [req.params.id],
-      { autoCommit: true }
+      `DELETE FROM appointments WHERE appt_id = $1`,
+      [req.params.id]
     );
-    if (result.rowsAffected === 0)
+    if (result.rowCount === 0)
       return res.status(404).json({ error: 'Appointment not found' });
     res.json({ message: 'Appointment deleted' });
   } catch (err) {

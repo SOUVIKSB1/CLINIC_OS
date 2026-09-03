@@ -1,61 +1,60 @@
-# ClinicOS API
+# ClinicOS Backend API
 
-Express API for the ClinicOS patient portal and hospital authority console, backed by Oracle Database.
+Express API for the ClinicOS patient portal, doctor console, and hospital authority administration, backed by PostgreSQL (compatible with free-tier cloud platforms like Neon, Supabase, Render, Railway, or local PostgreSQL).
 
-## Configuration
+## 🚀 Quick Setup
 
-Create or update `.env` with:
+### 1. Configure Database Connection
+
+Create or update `.env` in `clinic_backend/`:
 
 ```dotenv
-DB_USER=your_user
-DB_PASSWORD=your_password
-DB_CONNECT_STRING=your_connect_string
-WALLET_LOCATION=/path/to/wallet
+# Option A: Cloud PostgreSQL (Recommended - e.g. Neon / Supabase / Render)
+DATABASE_URL=postgresql://user:password@ep-xyz.neon.tech/neondb?sslmode=require
+
+# Option B: Local PostgreSQL
+# DB_HOST=localhost
+# DB_PORT=5432
+# DB_USER=postgres
+# DB_PASSWORD=postgres
+# DB_NAME=clinicos
+
+# Server & Auth Settings
 PORT=5001
-JWT_SECRET=replace_with_a_long_random_secret
+JWT_SECRET=your_super_secret_jwt_key_that_is_very_long
+
+# Initial Administrator Account
 ADMIN_NAME=Hospital Authority
 ADMIN_EMAIL=admin@clinic.com
-ADMIN_PASSWORD=choose_a_secure_password
+ADMIN_PASSWORD=Admin@12345
 ```
 
-For a new database, create tables from the project root in this order:
+### 2. Auto-Initialization
 
-1. `sequence.sql`
-2. `seq.sql`
-3. `Create_dept.sql`
-4. `Create_Doc.sql`
-5. `Create_pat.sql`
-6. `Create_appt.sql`
-7. `user.sql`
-8. `test.sql`
-9. `bill.sql`
+When you start the server, ClinicOS **automatically creates all required tables and seeds default reference data** (departments, doctors, lab tests, and administrator account) if they do not already exist!
 
-For a database that already contains earlier ClinicOS tables, run the in-place migration. It detects existing draft account/test/bill tables, adds required portal fields and constraints, and retains existing records:
-
+Alternatively, you can manually run:
 ```bash
+# Run schema migration & vitals seeding
 npm run migrate-portal
-```
 
-`portal_upgrade.sql` is provided for databases that have only the original four core tables and do not yet contain `USERS`, `LAB_TESTS`, `PATIENT_TESTS`, or `BILLS`.
-
-After the account table exists, create or reset the hospital authority account credentials using `ADMIN_EMAIL` and `ADMIN_PASSWORD` from `.env`:
-
-```bash
+# Create or reset administrator account
 npm run create-admin
 ```
 
-Patient accounts are created directly from the public registration form.
-
-## Run
+### 3. Run Server
 
 ```bash
 npm install
 npm start
+# or development mode:
+npm run dev
 ```
 
-The health endpoint is `GET /api/health`. Public routes expose departments and doctors for discovery; patient and authority actions use JWT-authenticated role permissions.
+The API will be running at `http://localhost:5001`.
+Health check endpoint: `GET http://localhost:5001/api/health`
 
-## Checks
+### 4. Verification
 
 ```bash
 npm test

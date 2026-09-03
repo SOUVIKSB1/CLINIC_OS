@@ -11,9 +11,7 @@ router.get('/', async (req, res) => {
   try {
     conn = await getConnection();
     const result = await conn.execute(
-      `SELECT dept_id, dept_name, location, phone FROM departments ORDER BY dept_name`,
-      [],
-      { outFormat: require('oracledb').OUT_FORMAT_OBJECT }
+      `SELECT dept_id, dept_name, location, phone FROM departments ORDER BY dept_name`
     );
     res.json(result.rows);
   } catch (err) {
@@ -29,9 +27,8 @@ router.get('/:id', async (req, res) => {
   try {
     conn = await getConnection();
     const result = await conn.execute(
-      `SELECT * FROM departments WHERE dept_id = :id`,
-      [req.params.id],
-      { outFormat: require('oracledb').OUT_FORMAT_OBJECT }
+      `SELECT * FROM departments WHERE dept_id = $1`,
+      [req.params.id]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: 'Department not found' });
@@ -53,9 +50,8 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
     conn = await getConnection();
     await conn.execute(
       `INSERT INTO departments (dept_name, location, phone)
-       VALUES (:dept_name, :location, :phone)`,
-      { dept_name, location, phone },
-      { autoCommit: true }
+       VALUES ($1, $2, $3)`,
+      [dept_name.trim(), location, phone]
     );
     res.status(201).json({ message: 'Department created' });
   } catch (err) {
@@ -71,11 +67,10 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     conn = await getConnection();
     const result = await conn.execute(
-      `DELETE FROM departments WHERE dept_id = :id`,
-      [req.params.id],
-      { autoCommit: true }
+      `DELETE FROM departments WHERE dept_id = $1`,
+      [req.params.id]
     );
-    if (result.rowsAffected === 0)
+    if (result.rowCount === 0)
       return res.status(404).json({ error: 'Department not found' });
     res.json({ message: 'Department deleted' });
   } catch (err) {

@@ -1,6 +1,5 @@
 const express = require('express');
 const router  = express.Router();
-const oracledb = require('oracledb');
 const { getConnection } = require('../db');
 const authenticate = require('../middlewares/authMiddleware');
 const authorize = require('../middlewares/roleMiddleware');
@@ -15,42 +14,42 @@ router.post('/', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) =>
   let conn;
   try {
     conn = await getConnection();
+    await conn.execute('BEGIN');
 
     // 1. Get appointment details (doctor_id, patient_id, and doctor details)
     const apptResult = await conn.execute(
       `SELECT a.doctor_id, a.patient_id, d.first_name, d.last_name, d.fees
        FROM appointments a
        JOIN doctors d ON a.doctor_id = d.doctor_id
-       WHERE a.appt_id = :appointment_id`,
-      [appointment_id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+       WHERE a.appt_id = $1`,
+      [appointment_id]
     );
 
     if (apptResult.rows.length === 0) {
+      await conn.rollback();
       return res.status(404).json({ error: 'Appointment not found' });
     }
 
     const { DOCTOR_ID, PATIENT_ID, FIRST_NAME, LAST_NAME, FEES } = apptResult.rows[0];
-
     const durationVal = duration !== undefined && duration !== null && duration !== '' ? Number(duration) : 7;
 
     // 2. Insert the prescription
     await conn.execute(
       `INSERT INTO prescriptions (appointment_id, doctor_id, patient_id, medicines, instructions, duration)
-       VALUES (:appointment_id, :doctor_id, :patient_id, :medicines, :instructions, :duration)`,
-      {
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
         appointment_id,
-        doctor_id: DOCTOR_ID,
-        patient_id: PATIENT_ID,
-        medicines: medicines.trim(),
-        instructions: instructions ? instructions.trim() : null,
-        duration: durationVal
-      }
+        DOCTOR_ID,
+        PATIENT_ID,
+        medicines.trim(),
+        instructions ? instructions.trim() : null,
+        durationVal
+      ]
     );
 
     // 3. Mark appointment as Completed
     await conn.execute(
-      `UPDATE appointments SET status = 'Completed' WHERE appt_id = :appointment_id`,
+      `UPDATE appointments SET status = 'Completed' WHERE appt_id = $1`,
       [appointment_id]
     );
 
@@ -59,17 +58,17 @@ router.post('/', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) =>
       const description = `Consultation Fee - Dr. ${FIRST_NAME} ${LAST_NAME}`;
       await conn.execute(
         `INSERT INTO bills (patient_id, appointment_id, description, total_amount, payment_status, due_date)
-         VALUES (:patient_id, :appointment_id, :description, :total_amount, 'Pending', SYSDATE + 7)`,
-        {
-          patient_id: PATIENT_ID,
+         VALUES ($1, $2, $3, $4, 'Pending', CURRENT_DATE + INTERVAL '7 days')`,
+        [
+          PATIENT_ID,
           appointment_id,
           description,
-          total_amount: Number(FEES)
-        }
+          Number(FEES)
+        ]
       );
     }
 
-    await conn.commit();
+    await conn.execute('COMMIT');
     res.status(201).json({ message: 'Prescription generated and marked appointment as Completed.' });
   } catch (err) {
     if (conn) await conn.rollback();
@@ -86,7 +85,7 @@ router.get('/appointment/:appt_id', authenticate, async (req, res) => {
     conn = await getConnection();
     const result = await conn.execute(
       `SELECT pr.prescription_id, pr.appointment_id, pr.medicines, pr.instructions, pr.duration,
-              TO_CHAR(pr.created_at, 'YYYY-MM-DD HH:MI AM') AS created_at,
+              TO_CHAR(pr.created_at, 'YYYY-MM-DD HH12:MI AM') AS created_at,
               'Dr. ' || d.first_name || ' ' || d.last_name AS doctor_name,
               d.specialization,
               p.first_name || ' ' || p.last_name AS patient_name,
@@ -95,9 +94,8 @@ router.get('/appointment/:appt_id', authenticate, async (req, res) => {
        JOIN appointments a ON pr.appointment_id = a.appt_id
        JOIN doctors d ON pr.doctor_id = d.doctor_id
        JOIN patients p ON pr.patient_id = p.patient_id
-       WHERE pr.appointment_id = :appt_id`,
-      [req.params.appt_id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+       WHERE pr.appointment_id = $1`,
+      [req.params.appt_id]
     );
 
     if (result.rows.length === 0) {
@@ -119,7 +117,7 @@ router.get('/patient/:patient_id', authenticate, authorize('ADMIN', 'DOCTOR'), a
     conn = await getConnection();
     const result = await conn.execute(
       `SELECT pr.prescription_id, pr.appointment_id, pr.medicines, pr.instructions, pr.duration,
-              TO_CHAR(pr.created_at, 'YYYY-MM-DD HH:MI AM') AS created_at,
+              TO_CHAR(pr.created_at, 'YYYY-MM-DD HH12:MI AM') AS created_at,
               'Dr. ' || d.first_name || ' ' || d.last_name AS doctor_name,
               d.specialization,
               p.first_name || ' ' || p.last_name AS patient_name,
@@ -128,10 +126,9 @@ router.get('/patient/:patient_id', authenticate, authorize('ADMIN', 'DOCTOR'), a
        JOIN appointments a ON pr.appointment_id = a.appt_id
        JOIN doctors d ON pr.doctor_id = d.doctor_id
        JOIN patients p ON pr.patient_id = p.patient_id
-       WHERE pr.patient_id = :patient_id
+       WHERE pr.patient_id = $1
        ORDER BY a.appt_date DESC, pr.created_at DESC`,
-      [req.params.patient_id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [req.params.patient_id]
     );
     res.json(result.rows);
   } catch (err) {
@@ -154,18 +151,17 @@ router.put('/:id', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) 
     const durationVal = duration !== undefined && duration !== null && duration !== '' ? Number(duration) : 7;
     const result = await conn.execute(
       `UPDATE prescriptions 
-       SET medicines = :medicines, instructions = :instructions, duration = :duration 
-       WHERE prescription_id = :id`,
-      {
-        medicines: medicines.trim(),
-        instructions: instructions ? instructions.trim() : null,
-        duration: durationVal,
-        id: req.params.id
-      },
-      { autoCommit: true }
+       SET medicines = $1, instructions = $2, duration = $3 
+       WHERE prescription_id = $4`,
+      [
+        medicines.trim(),
+        instructions ? instructions.trim() : null,
+        durationVal,
+        req.params.id
+      ]
     );
 
-    if (result.rowsAffected === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Prescription not found' });
     }
 
@@ -178,4 +174,3 @@ router.put('/:id', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) 
 });
 
 module.exports = router;
-

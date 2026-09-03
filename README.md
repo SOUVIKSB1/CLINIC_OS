@@ -6,7 +6,7 @@
 
 ### Smart Clinic Appointment System
 
-Modern healthcare management platform built with React, Node.js & Oracle Database.
+Modern healthcare management platform built with React, Node.js & PostgreSQL.
 
 </div>
 
@@ -15,7 +15,7 @@ Modern healthcare management platform built with React, Node.js & Oracle Databas
 ![React](https://img.shields.io/badge/Frontend-React-61DAFB?style=for-the-badge&logo=react&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Backend-Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/API-Express-000000?style=for-the-badge&logo=express&logoColor=white)
-![Oracle](https://img.shields.io/badge/Database-Oracle-F80000?style=for-the-badge&logo=oracle&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![JWT](https://img.shields.io/badge/Auth-JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
 
 *A comprehensive full-stack healthcare management platform connecting patients, doctors, and hospital authorities through a unified digital ecosystem.*
@@ -79,7 +79,7 @@ Additionally, the system includes an **AI-powered symptom guidance module** and 
 |---------|-------------|
 | 🎨 Frontend | React, Vite |
 | ⚙ Backend | Node.js, Express.js |
-| 🗄 Database | Oracle Database |
+| 🗄 Database | PostgreSQL (Neon / Supabase / Render / Local) |
 | 🔒 Authentication | JWT, bcrypt |
 | 🌐 API Layer | REST APIs |
 | 🛡 Security | Helmet, CORS |
@@ -98,7 +98,7 @@ ClinicOS/
 │   └── Node.js + Express API
 │
 └── sql/
-    └── Database Scripts & Migrations
+    └── Database Scripts & Migrations (PostgreSQL)
 ```
 
 ---
@@ -107,10 +107,9 @@ ClinicOS/
 
 Before getting started, ensure you have:
 
-- Node.js
+- Node.js (v18+)
 - npm
-- Oracle Database
-- Oracle Wallet Credentials
+- PostgreSQL database (or free-tier [Neon](https://neon.tech) / [Supabase](https://supabase.com) / [Render](https://render.com))
 
 ---
 
@@ -130,14 +129,11 @@ npm install
 
 ### Configure Environment Variables
 
-Create a `.env` file inside `clinic_backend`.
+Create a `.env` file inside `clinic_backend`:
 
 ```env
-# Oracle Database Credentials
-DB_USER=your_oracle_db_user
-DB_PASSWORD=your_oracle_db_password
-DB_CONNECT_STRING=your_db_connect_string
-WALLET_LOCATION=/path/to/your/oracle_wallet
+# PostgreSQL Connection String (Free Cloud Database: Neon / Supabase / Render)
+DATABASE_URL=postgresql://user:password@ep-xyz.neon.tech/neondb?sslmode=require
 
 # Application Settings
 PORT=5001
@@ -151,37 +147,17 @@ ADMIN_PASSWORD=your_secure_admin_password
 
 ---
 
-### Database Schema Setup
+### Database Setup & Migration
 
-#### Fresh Installation
+ClinicOS **automatically sets up the database schema and seeds initial reference data on the first server start**!
 
-Run the following SQL scripts in order:
-
-```text
-1. sequence.sql
-2. seq.sql
-3. Create_dept.sql
-4. Create_Doc.sql
-5. Create_pat.sql
-6. Create_appt.sql
-7. user.sql
-8. test.sql
-9. bill.sql
-10. pres.sql
-11. payment.sql
-12. notification.sql
-13. audit.sql
-```
-
-#### Existing Database Migration
+If you want to manually run the migration and vitals seeding:
 
 ```bash
 npm run migrate-portal
 ```
 
----
-
-### Create Initial Administrator
+To create or reset the administrator account:
 
 ```bash
 npm run create-admin
@@ -267,18 +243,6 @@ API requests to `/api` are automatically proxied to the backend during developme
 ✔ Audit Logging
 ✔ AI Symptom Assistance
 ```
-
----
-
-## 🌟 Future Enhancements
-
-- Telemedicine Support
-- Video Consultations
-- Online Payment Gateway Integration
-- AI Disease Prediction
-- Mobile Application
-- Electronic Health Records (EHR)
-- Insurance Claim Processing
 
 ---
 

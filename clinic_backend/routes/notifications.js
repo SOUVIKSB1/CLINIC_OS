@@ -1,6 +1,5 @@
 const express = require('express');
 const router  = express.Router();
-const oracledb = require('oracledb');
 const { getConnection } = require('../db');
 const authenticate = require('../middlewares/authMiddleware');
 const authorize = require('../middlewares/roleMiddleware');
@@ -19,12 +18,11 @@ router.get('/', authenticate, authorize('PATIENT'), async (req, res) => {
               TO_CHAR(a.appt_date,'YYYY-MM-DD') AS appt_date, a.appt_time
        FROM appointments a
        JOIN doctors d ON a.doctor_id = d.doctor_id
-       WHERE a.patient_id = :patient_id
+       WHERE a.patient_id = $1
          AND a.status IN ('Approved', 'Scheduled')
-         AND a.appt_date >= TRUNC(SYSDATE)
+         AND a.appt_date >= CURRENT_DATE
        ORDER BY a.appt_date, a.appt_time`,
-      [patient_id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [patient_id]
     );
 
     appts.rows.forEach(appt => {
@@ -41,10 +39,9 @@ router.get('/', authenticate, authorize('PATIENT'), async (req, res) => {
     const bills = await conn.execute(
       `SELECT bill_id, description, total_amount, TO_CHAR(due_date,'YYYY-MM-DD') AS due_date
        FROM bills
-       WHERE patient_id = :patient_id AND payment_status = 'Pending'
+       WHERE patient_id = $1 AND payment_status = 'Pending'
        ORDER BY created_at DESC`,
-      [patient_id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [patient_id]
     );
 
     bills.rows.forEach(bill => {
@@ -62,10 +59,9 @@ router.get('/', authenticate, authorize('PATIENT'), async (req, res) => {
       `SELECT pt.booking_id, t.test_name, TO_CHAR(pt.booking_date,'YYYY-MM-DD') AS booking_date
        FROM patient_tests pt
        JOIN lab_tests t ON pt.test_id = t.test_id
-       WHERE pt.patient_id = :patient_id AND pt.status = 'Completed'
+       WHERE pt.patient_id = $1 AND pt.status = 'Completed'
        ORDER BY pt.created_at DESC`,
-      [patient_id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [patient_id]
     );
 
     tests.rows.forEach(test => {

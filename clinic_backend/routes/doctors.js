@@ -1,7 +1,6 @@
 // routes/doctors.js
 const express    = require('express');
 const router     = express.Router();
-const oracledb   = require('oracledb');
 const { getConnection } = require('../db');
 const authenticate = require('../middlewares/authMiddleware');
 const authorize = require('../middlewares/roleMiddleware');
@@ -17,9 +16,7 @@ router.get('/', async (req, res) => {
               dp.dept_name
        FROM doctors d
        JOIN departments dp ON d.dept_id = dp.dept_id
-       ORDER BY d.last_name`,
-      [],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+       ORDER BY d.last_name`
     );
     res.json(result.rows);
   } catch (err) {
@@ -36,9 +33,8 @@ router.get('/department/:dept_id', async (req, res) => {
     conn = await getConnection();
     const result = await conn.execute(
       `SELECT doctor_id, first_name, last_name, specialization, available_days, fees
-       FROM doctors WHERE dept_id = :dept_id ORDER BY last_name`,
-      [req.params.dept_id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+       FROM doctors WHERE dept_id = $1 ORDER BY last_name`,
+      [req.params.dept_id]
     );
     res.json(result.rows);
   } catch (err) {
@@ -56,9 +52,8 @@ router.get('/:id', async (req, res) => {
     const result = await conn.execute(
       `SELECT d.*, dp.dept_name FROM doctors d
        JOIN departments dp ON d.dept_id = dp.dept_id
-       WHERE d.doctor_id = :id`,
-      [req.params.id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+       WHERE d.doctor_id = $1`,
+      [req.params.id]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: 'Doctor not found' });
@@ -80,18 +75,17 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
     conn = await getConnection();
     await conn.execute(
       `INSERT INTO doctors (first_name, last_name, specialization, dept_id, email, phone, available_days, fees)
-       VALUES (:first_name, :last_name, :specialization, :dept_id, :email, :phone, :available_days, :fees)`,
-      {
-        first_name: first_name.trim(),
-        last_name: last_name.trim(),
-        specialization: specialization || null,
-        dept_id: Number(dept_id),
-        email: email || null,
-        phone: phone || null,
-        available_days: available_days || null,
-        fees: fees ? Number(fees) : 0
-      },
-      { autoCommit: true }
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        first_name.trim(),
+        last_name.trim(),
+        specialization || null,
+        Number(dept_id),
+        email || null,
+        phone || null,
+        available_days || null,
+        fees ? Number(fees) : 0
+      ]
     );
     res.status(201).json({ message: 'Doctor created' });
   } catch (err) {
@@ -107,11 +101,10 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     conn = await getConnection();
     const result = await conn.execute(
-      `DELETE FROM doctors WHERE doctor_id = :id`,
-      [req.params.id],
-      { autoCommit: true }
+      `DELETE FROM doctors WHERE doctor_id = $1`,
+      [req.params.id]
     );
-    if (result.rowsAffected === 0)
+    if (result.rowCount === 0)
       return res.status(404).json({ error: 'Doctor not found' });
     res.json({ message: 'Doctor deleted' });
   } catch (err) {
@@ -141,30 +134,29 @@ router.put('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
 
     const result = await conn.execute(
       `UPDATE doctors
-       SET first_name = :first_name,
-           last_name = :last_name,
-           specialization = :specialization,
-           dept_id = :dept_id,
-           email = :email,
-           phone = :phone,
-           available_days = :available_days,
-           fees = :fees
-       WHERE doctor_id = :id`,
-      {
-        first_name: first_name ? first_name.trim() : null,
-        last_name: last_name ? last_name.trim() : null,
-        specialization: specialization || null,
-        dept_id: dept_id ? Number(dept_id) : null,
-        email: email || null,
-        phone: phone || null,
-        available_days: available_days || null,
-        fees: fees ? Number(fees) : 0,
-        id: Number(req.params.id),
-      },
-      { autoCommit: true }
+       SET first_name = $1,
+           last_name = $2,
+           specialization = $3,
+           dept_id = $4,
+           email = $5,
+           phone = $6,
+           available_days = $7,
+           fees = $8
+       WHERE doctor_id = $9`,
+      [
+        first_name ? first_name.trim() : null,
+        last_name ? last_name.trim() : null,
+        specialization || null,
+        dept_id ? Number(dept_id) : null,
+        email || null,
+        phone || null,
+        available_days || null,
+        fees ? Number(fees) : 0,
+        Number(req.params.id)
+      ]
     );
 
-    if (result.rowsAffected === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Doctor not found' });
     }
 
@@ -194,10 +186,9 @@ router.get('/me/appointments', authenticate, authorize('DOCTOR'), async (req, re
               p.gender, TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS dob, p.phone
        FROM appointments a
        JOIN patients p ON a.patient_id = p.patient_id
-       WHERE a.doctor_id = :doctor_id
+       WHERE a.doctor_id = $1
        ORDER BY a.appt_date DESC, a.appt_time DESC`,
-      [req.user.doctorId],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [req.user.doctorId]
     );
     res.json(result.rows);
   } catch (err) {
@@ -220,10 +211,9 @@ router.get('/me/patients', authenticate, authorize('DOCTOR'), async (req, res) =
                        TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS date_of_birth, p.blood_group
        FROM patients p
        JOIN appointments a ON p.patient_id = a.patient_id
-       WHERE a.doctor_id = :doctor_id
+       WHERE a.doctor_id = $1
        ORDER BY p.last_name, p.first_name`,
-      [req.user.doctorId],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [req.user.doctorId]
     );
     res.json(result.rows);
   } catch (err) {
@@ -247,10 +237,9 @@ router.get('/me/shared-reports', authenticate, authorize('DOCTOR'), async (req, 
        JOIN patient_tests pt ON rs.booking_id = pt.booking_id
        JOIN lab_tests lt ON pt.test_id = lt.test_id
        JOIN patients p ON rs.patient_id = p.patient_id
-       WHERE LOWER(rs.recipient_email) = LOWER(:email)
+       WHERE LOWER(rs.recipient_email) = LOWER($1)
        ORDER BY rs.shared_at DESC`,
-      [req.user.email],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [req.user.email]
     );
     res.json(result.rows);
   } catch (err) {

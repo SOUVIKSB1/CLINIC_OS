@@ -1,7 +1,6 @@
 // routes/patients.js
 const express    = require('express');
 const router     = express.Router();
-const oracledb   = require('oracledb');
 const { getConnection } = require('../db');
 const authenticate = require('../middlewares/authMiddleware');
 const authorize = require('../middlewares/roleMiddleware');
@@ -15,9 +14,7 @@ router.get('/', authenticate, authorize('ADMIN'), async (req, res) => {
       `SELECT patient_id, first_name, last_name,
               TO_CHAR(date_of_birth,'YYYY-MM-DD') AS date_of_birth,
               gender, email, phone, address, blood_group
-       FROM patients ORDER BY last_name`,
-      [],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+       FROM patients ORDER BY last_name`
     );
     res.json(result.rows);
   } catch (err) {
@@ -36,9 +33,8 @@ router.get('/me', authenticate, authorize('PATIENT'), async (req, res) => {
       `SELECT patient_id, first_name, last_name,
               TO_CHAR(date_of_birth,'YYYY-MM-DD') AS date_of_birth,
               gender, email, phone, address, blood_group
-       FROM patients WHERE patient_id = :id`,
-      [req.user.patientId],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+       FROM patients WHERE patient_id = $1`,
+      [req.user.patientId]
     );
     if (!result.rows[0])
       return res.status(404).json({ error: 'Patient profile not found' });
@@ -58,10 +54,9 @@ router.get('/me/vitals', authenticate, authorize('PATIENT'), async (req, res) =>
     const result = await conn.execute(
       `SELECT vital_id, TO_CHAR(check_date, 'YYYY-MM-DD') AS check_date, blood_pressure, blood_sugar, weight, heart_rate
        FROM patient_vitals
-       WHERE patient_id = :id
+       WHERE patient_id = $1
        ORDER BY check_date ASC`,
-      [req.user.patientId],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [req.user.patientId]
     );
     res.json(result.rows);
   } catch (err) {
@@ -82,16 +77,15 @@ router.post('/me/vitals', authenticate, authorize('PATIENT'), async (req, res) =
     conn = await getConnection();
     await conn.execute(
       `INSERT INTO patient_vitals (patient_id, check_date, blood_pressure, blood_sugar, weight, heart_rate)
-       VALUES (:patient_id, NVL(TO_DATE(:check_date,'YYYY-MM-DD'), SYSDATE), :blood_pressure, :blood_sugar, :weight, :heart_rate)`,
-      {
-        patient_id: req.user.patientId,
-        check_date: check_date || null,
-        blood_pressure: blood_pressure || null,
-        blood_sugar: Number(blood_sugar),
-        weight: Number(weight),
-        heart_rate: Number(heart_rate)
-      },
-      { autoCommit: true }
+       VALUES ($1, COALESCE($2::date, CURRENT_DATE), $3, $4, $5, $6)`,
+      [
+        req.user.patientId,
+        check_date || null,
+        blood_pressure || null,
+        Number(blood_sugar),
+        Number(weight),
+        Number(heart_rate)
+      ]
     );
     res.status(201).json({ message: 'Vitals logged successfully.' });
   } catch (err) {
@@ -107,11 +101,10 @@ router.delete('/me/vitals/:vitalId', authenticate, authorize('PATIENT'), async (
   try {
     conn = await getConnection();
     const result = await conn.execute(
-      `DELETE FROM patient_vitals WHERE vital_id = :vitalId AND patient_id = :patientId`,
-      { vitalId: req.params.vitalId, patientId: req.user.patientId },
-      { autoCommit: true }
+      `DELETE FROM patient_vitals WHERE vital_id = $1 AND patient_id = $2`,
+      [req.params.vitalId, req.user.patientId]
     );
-    if (result.rowsAffected === 0)
+    if (result.rowCount === 0)
       return res.status(404).json({ error: 'Vitals entry not found' });
     res.json({ message: 'Vitals entry deleted' });
   } catch (err) {
@@ -130,9 +123,8 @@ router.get('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
       `SELECT patient_id, first_name, last_name,
               TO_CHAR(date_of_birth,'YYYY-MM-DD') AS date_of_birth,
               gender, email, phone, address, blood_group
-       FROM patients WHERE patient_id = :id`,
-      [req.params.id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+       FROM patients WHERE patient_id = $1`,
+      [req.params.id]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: 'Patient not found' });
@@ -154,9 +146,8 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
     conn = await getConnection();
     await conn.execute(
       `INSERT INTO patients (first_name, last_name, date_of_birth, gender, email, phone, address, blood_group)
-       VALUES (:first_name, :last_name, TO_DATE(:date_of_birth,'YYYY-MM-DD'), :gender, :email, :phone, :address, :blood_group)`,
-      { first_name, last_name, date_of_birth, gender, email, phone, address, blood_group },
-      { autoCommit: true }
+       VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8)`,
+      [first_name.trim(), last_name.trim(), date_of_birth, gender, email || null, phone.trim(), address || null, blood_group || null]
     );
     res.status(201).json({ message: 'Patient registered' });
   } catch (err) {
@@ -173,22 +164,27 @@ async function updatePatient(req, res, patientId) {
   let conn;
   try {
     conn = await getConnection();
+    await conn.execute('BEGIN');
+
     const result = await conn.execute(
       `UPDATE patients
-       SET first_name = :first_name, last_name = :last_name,
-           date_of_birth = TO_DATE(:date_of_birth,'YYYY-MM-DD'), gender = :gender,
-           phone = :phone, address = :address, email = :email, blood_group = :blood_group
-       WHERE patient_id = :id`,
-      { first_name, last_name, date_of_birth, gender, email, phone, address, blood_group, id: patientId },
-      { autoCommit: false }
+       SET first_name = $1, last_name = $2,
+           date_of_birth = $3::date, gender = $4,
+           phone = $5, address = $6, email = $7, blood_group = $8
+       WHERE patient_id = $9`,
+      [first_name.trim(), last_name.trim(), date_of_birth, gender, phone.trim(), address, email, blood_group, patientId]
     );
-    if (result.rowsAffected === 0)
+    if (result.rowCount === 0) {
+      await conn.rollback();
       return res.status(404).json({ error: 'Patient not found' });
+    }
+
     await conn.execute(
-      `UPDATE users SET full_name = :full_name, email = :email WHERE patient_id = :id`,
-      { full_name: `${first_name.trim()} ${last_name.trim()}`, email, id: patientId },
-      { autoCommit: true }
+      `UPDATE users SET full_name = $1, email = $2 WHERE patient_id = $3`,
+      [`${first_name.trim()} ${last_name.trim()}`, email, patientId]
     );
+
+    await conn.execute('COMMIT');
     res.json({ message: 'Patient updated' });
   } catch (err) {
     if (conn) await conn.rollback();
@@ -202,77 +198,29 @@ async function updatePatient(req, res, patientId) {
 router.put('/me', authenticate, authorize('PATIENT'), (req, res) => updatePatient(req, res, req.user.patientId));
 router.put('/:id', authenticate, authorize('ADMIN'), (req, res) => updatePatient(req, res, req.params.id));
 
-// DELETE patient
+// DELETE patient (and linked records)
 router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
   const patientId = req.params.id;
   let conn;
   try {
     conn = await getConnection();
+    await conn.execute('BEGIN');
 
-    // 1. Delete payments associated with this patient's bills
-    await conn.execute(
-      `DELETE FROM payments WHERE bill_id IN (SELECT bill_id FROM bills WHERE patient_id = :id)`,
-      [patientId],
-      { autoCommit: false }
-    );
-
-    // 2. Delete bills associated with this patient
-    await conn.execute(
-      `DELETE FROM bills WHERE patient_id = :id`,
-      [patientId],
-      { autoCommit: false }
-    );
-
-    // 3. Delete prescriptions associated with this patient
-    await conn.execute(
-      `DELETE FROM prescriptions WHERE patient_id = :id`,
-      [patientId],
-      { autoCommit: false }
-    );
-
-    // 4. Delete patient tests associated with this patient
-    await conn.execute(
-      `DELETE FROM patient_tests WHERE patient_id = :id`,
-      [patientId],
-      { autoCommit: false }
-    );
-
-    // 5. Delete appointments associated with this patient
-    await conn.execute(
-      `DELETE FROM appointments WHERE patient_id = :id`,
-      [patientId],
-      { autoCommit: false }
-    );
-
-    // 6. Delete users associated with this patient
-    await conn.execute(
-      `DELETE FROM users WHERE patient_id = :id`,
-      [patientId],
-      { autoCommit: false }
-    );
-
-    // 7. Finally, delete the patient record
+    // Due to ON DELETE CASCADE on foreign keys, deleting patient cascades to appointments, tests, users, vitals, etc.
     const result = await conn.execute(
-      `DELETE FROM patients WHERE patient_id = :id`,
-      [patientId],
-      { autoCommit: false }
+      `DELETE FROM patients WHERE patient_id = $1`,
+      [patientId]
     );
 
-    if (result.rowsAffected === 0) {
+    if (result.rowCount === 0) {
       await conn.rollback();
       return res.status(404).json({ error: 'Patient not found' });
     }
 
-    await conn.commit();
+    await conn.execute('COMMIT');
     res.json({ message: 'Patient and all linked clinical/billing records deleted successfully.' });
   } catch (err) {
-    if (conn) {
-      try {
-        await conn.rollback();
-      } catch (rollbackErr) {
-        console.error('Rollback error:', rollbackErr);
-      }
-    }
+    if (conn) await conn.rollback();
     res.status(500).json({ error: err.message });
   } finally {
     if (conn) await conn.close();
@@ -289,9 +237,8 @@ router.get('/:id/activity', authenticate, authorize('ADMIN'), async (req, res) =
     const patientResult = await conn.execute(
       `SELECT patient_id, first_name, last_name, TO_CHAR(date_of_birth,'YYYY-MM-DD') AS date_of_birth,
               gender, email, phone, address, blood_group
-       FROM patients WHERE patient_id = :id`,
-      [req.params.id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+       FROM patients WHERE patient_id = $1`,
+      [req.params.id]
     );
 
     if (patientResult.rows.length === 0) {
@@ -306,14 +253,13 @@ router.get('/:id/activity', authenticate, authorize('ADMIN'), async (req, res) =
               d.specialization, dp.dept_name,
               TO_CHAR(a.appt_date,'YYYY-MM-DD') AS appt_date,
               a.appt_time, a.status, a.reason, a.notes,
-              TO_CHAR(a.created_at,'YYYY-MM-DD HH:MI AM') AS created_at
+              TO_CHAR(a.created_at,'YYYY-MM-DD HH12:MI AM') AS created_at
        FROM appointments a
        JOIN doctors d ON a.doctor_id = d.doctor_id
        JOIN departments dp ON a.dept_id = dp.dept_id
-       WHERE a.patient_id = :id
+       WHERE a.patient_id = $1
        ORDER BY a.appt_date DESC`,
-      [req.params.id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [req.params.id]
     );
 
     // 3. Fetch Test Requests History
@@ -321,38 +267,35 @@ router.get('/:id/activity', authenticate, authorize('ADMIN'), async (req, res) =
       `SELECT pt.booking_id, t.test_name, t.price,
               TO_CHAR(pt.booking_date,'YYYY-MM-DD') AS booking_date,
               pt.status, pt.notes, pt.results,
-              TO_CHAR(pt.created_at,'YYYY-MM-DD HH:MI AM') AS created_at
+              TO_CHAR(pt.created_at,'YYYY-MM-DD HH12:MI AM') AS created_at
        FROM patient_tests pt
        JOIN lab_tests t ON pt.test_id = t.test_id
-       WHERE pt.patient_id = :id
+       WHERE pt.patient_id = $1
        ORDER BY pt.booking_date DESC`,
-      [req.params.id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [req.params.id]
     );
 
     // 4. Fetch Bills History
     const billsResult = await conn.execute(
       `SELECT bill_id, description, total_amount, payment_status,
               TO_CHAR(due_date,'YYYY-MM-DD') AS due_date,
-              TO_CHAR(created_at,'YYYY-MM-DD HH:MI AM') AS created_at
+              TO_CHAR(created_at,'YYYY-MM-DD HH12:MI AM') AS created_at
        FROM bills
-       WHERE patient_id = :id
+       WHERE patient_id = $1
        ORDER BY created_at DESC`,
-      [req.params.id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [req.params.id]
     );
 
     // 5. Fetch Payments History
     const paymentsResult = await conn.execute(
       `SELECT py.payment_id, py.bill_id, py.amount, py.payment_method, py.transaction_ref,
-              TO_CHAR(py.payment_date,'YYYY-MM-DD HH:MI AM') AS payment_date,
+              TO_CHAR(py.payment_date,'YYYY-MM-DD HH12:MI AM') AS payment_date,
               b.description AS bill_description
        FROM payments py
        JOIN bills b ON py.bill_id = b.bill_id
-       WHERE b.patient_id = :id
+       WHERE b.patient_id = $1
        ORDER BY py.payment_date DESC`,
-      [req.params.id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [req.params.id]
     );
 
     res.json({
@@ -369,7 +312,6 @@ router.get('/:id/activity', authenticate, authorize('ADMIN'), async (req, res) =
   }
 });
 
-
 // GET single patient's vitals (Admin/Doctor check)
 router.get('/:id/vitals', authenticate, authorize('ADMIN', 'DOCTOR'), async (req, res) => {
   let conn;
@@ -378,10 +320,9 @@ router.get('/:id/vitals', authenticate, authorize('ADMIN', 'DOCTOR'), async (req
     const result = await conn.execute(
       `SELECT vital_id, TO_CHAR(check_date, 'YYYY-MM-DD') AS check_date, blood_pressure, blood_sugar, weight, heart_rate
        FROM patient_vitals
-       WHERE patient_id = :id
+       WHERE patient_id = $1
        ORDER BY check_date ASC`,
-      [req.params.id],
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      [req.params.id]
     );
     res.json(result.rows);
   } catch (err) {
@@ -402,15 +343,14 @@ router.post('/:id/vitals', authenticate, authorize('ADMIN', 'DOCTOR'), async (re
     conn = await getConnection();
     await conn.execute(
       `INSERT INTO patient_vitals (patient_id, blood_pressure, blood_sugar, weight, heart_rate)
-       VALUES (:patient_id, :blood_pressure, :blood_sugar, :weight, :heart_rate)`,
-      {
-        patient_id: req.params.id,
-        blood_pressure: blood_pressure || null,
-        blood_sugar: Number(blood_sugar),
-        weight: Number(weight),
-        heart_rate: Number(heart_rate)
-      },
-      { autoCommit: true }
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        req.params.id,
+        blood_pressure || null,
+        Number(blood_sugar),
+        Number(weight),
+        Number(heart_rate)
+      ]
     );
     res.status(201).json({ message: 'Vitals logged successfully for patient.' });
   } catch (err) {
