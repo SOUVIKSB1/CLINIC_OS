@@ -13,21 +13,21 @@ router.get('/', authenticate, authorize('ADMIN'), async (req, res) => {
     const result = await conn.execute(
       `SELECT a.appt_id,
               p.patient_id,
-              p.first_name || ' ' || p.last_name  AS patient_name,
+              CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
               d.doctor_id,
-              'Dr. ' || d.first_name || ' ' || d.last_name AS doctor_name,
+              CONCAT('Dr. ', d.first_name, ' ', d.last_name) AS doctor_name,
               d.specialization,
               dp.dept_name,
-              TO_CHAR(a.appt_date,'YYYY-MM-DD')   AS appt_date,
+              TO_CHAR(a.appt_date,'YYYY-MM-DD') AS appt_date,
               a.appt_time,
               a.status,
               a.reason,
               a.notes,
               pr.prescription_id
        FROM appointments a
-       JOIN patients    p  ON a.patient_id = p.patient_id
-       JOIN doctors     d  ON a.doctor_id  = d.doctor_id
-       JOIN departments dp ON a.dept_id    = dp.dept_id
+       JOIN patients p ON a.patient_id = p.patient_id
+       JOIN doctors d ON a.doctor_id = d.doctor_id
+       JOIN departments dp ON a.dept_id = dp.dept_id
        LEFT JOIN prescriptions pr ON a.appt_id = pr.appointment_id
        ORDER BY a.appt_date DESC, a.appt_time`
     );
@@ -45,18 +45,18 @@ async function getPatientAppointments(req, res, patientId) {
     conn = await getConnection();
     const result = await conn.execute(
       `SELECT a.appt_id,
-              'Dr. ' || d.first_name || ' ' || d.last_name AS doctor_name,
+              CONCAT('Dr. ', d.first_name, ' ', d.last_name) AS doctor_name,
               d.specialization, dp.dept_name,
               TO_CHAR(a.appt_date,'YYYY-MM-DD') AS appt_date,
               a.appt_time, a.status, a.reason,
               pr.prescription_id
        FROM appointments a
-       JOIN doctors     d  ON a.doctor_id = d.doctor_id
-       JOIN departments dp ON a.dept_id   = dp.dept_id
+       JOIN doctors d ON a.doctor_id = d.doctor_id
+       JOIN departments dp ON a.dept_id = dp.dept_id
        LEFT JOIN prescriptions pr ON a.appt_id = pr.appointment_id
        WHERE a.patient_id = $1
        ORDER BY a.appt_date DESC`,
-      [patientId]
+      [Number(patientId)]
     );
     res.json(result.rows);
   } catch (err) {
@@ -77,7 +77,7 @@ router.get('/doctor/:doctor_id', authenticate, authorize('ADMIN'), async (req, r
     conn = await getConnection();
     const result = await conn.execute(
       `SELECT a.appt_id,
-              p.first_name || ' ' || p.last_name AS patient_name,
+              CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
               p.phone,
               TO_CHAR(a.appt_date,'YYYY-MM-DD') AS appt_date,
               a.appt_time, a.status, a.reason
@@ -85,7 +85,7 @@ router.get('/doctor/:doctor_id', authenticate, authorize('ADMIN'), async (req, r
        JOIN patients p ON a.patient_id = p.patient_id
        WHERE a.doctor_id = $1
        ORDER BY a.appt_date`,
-      [req.params.doctor_id]
+      [Number(req.params.doctor_id)]
     );
     res.json(result.rows);
   } catch (err) {
@@ -101,12 +101,15 @@ router.post('/', authenticate, authorize('PATIENT'), async (req, res) => {
   const patient_id = req.user.patientId;
   if (!doctor_id || !dept_id || !appt_date || !appt_time)
     return res.status(400).json({ error: 'doctor_id, dept_id, appt_date and appt_time are required' });
+
+  const cleanDate = (typeof appt_date === 'string') ? appt_date.trim() : appt_date;
+
   let conn;
   try {
     conn = await getConnection();
     const doctorResult = await conn.execute(
       `SELECT first_name, last_name, available_days, dept_id FROM doctors WHERE doctor_id = $1`,
-      [doctor_id]
+      [Number(doctor_id)]
     );
     if (doctorResult.rows.length === 0)
       return res.status(404).json({ error: 'Selected doctor not found' });
@@ -134,7 +137,7 @@ router.post('/', authenticate, authorize('PATIENT'), async (req, res) => {
           if (mapped) availSet.add(mapped);
         }
 
-        const [year, month, day] = appt_date.split('-').map(Number);
+        const [year, month, day] = String(cleanDate).split('-').map(Number);
         const dateObj = new Date(year, month - 1, day);
         const shortDayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -155,14 +158,23 @@ router.post('/', authenticate, authorize('PATIENT'), async (req, res) => {
          AND appt_date = $2::date
          AND appt_time = $3
          AND status IN ('Pending', 'Approved', 'Scheduled')`,
-      [doctor_id, appt_date, appt_time]
+      [Number(doctor_id), cleanDate, appt_time]
     );
     if (parseInt(occupied.rows[0].TOTAL, 10) > 0)
       return res.status(409).json({ error: 'This time slot is already booked for the selected doctor' });
+    
     await conn.execute(
       `INSERT INTO appointments (patient_id, doctor_id, dept_id, appt_date, appt_time, status, reason, notes)
        VALUES ($1, $2, $3, $4::date, $5, 'Pending', $6, $7)`,
-      [patient_id, doctor_id, dept_id, appt_date, appt_time, reason || null, notes || null]
+      [
+        Number(patient_id),
+        Number(doctor_id),
+        Number(dept_id),
+        cleanDate,
+        appt_time,
+        reason || null,
+        notes || null
+      ]
     );
     res.status(201).json({ message: 'Appointment request sent for approval' });
   } catch (err) {
@@ -183,7 +195,7 @@ router.put('/:id/status', authenticate, authorize('ADMIN'), async (req, res) => 
     conn = await getConnection();
     const result = await conn.execute(
       `UPDATE appointments SET status = $1 WHERE appt_id = $2`,
-      [status, req.params.id]
+      [status, Number(req.params.id)]
     );
     if (result.rowCount === 0)
       return res.status(404).json({ error: 'Appointment not found' });
@@ -204,7 +216,7 @@ router.put('/:id/cancel', authenticate, authorize('PATIENT'), async (req, res) =
       `UPDATE appointments SET status = 'Cancelled'
        WHERE appt_id = $1 AND patient_id = $2
          AND status IN ('Pending', 'Approved', 'Scheduled')`,
-      [req.params.id, req.user.patientId]
+      [Number(req.params.id), Number(req.user.patientId)]
     );
     if (result.rowCount === 0)
       return res.status(404).json({ error: 'Open appointment request not found' });
@@ -223,7 +235,7 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
     conn = await getConnection();
     const result = await conn.execute(
       `DELETE FROM appointments WHERE appt_id = $1`,
-      [req.params.id]
+      [Number(req.params.id)]
     );
     if (result.rowCount === 0)
       return res.status(404).json({ error: 'Appointment not found' });

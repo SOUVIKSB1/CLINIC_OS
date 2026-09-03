@@ -10,7 +10,7 @@ router.get('/', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     conn = await getConnection();
     const result = await conn.execute(
-      `SELECT b.bill_id, b.patient_id, p.first_name || ' ' || p.last_name AS patient_name,
+      `SELECT b.bill_id, b.patient_id, CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
               b.appointment_id, b.booking_id, b.description, b.total_amount, b.payment_status,
               TO_CHAR(b.due_date,'YYYY-MM-DD') AS due_date, TO_CHAR(b.created_at,'YYYY-MM-DD') AS created_at
        FROM bills b JOIN patients p ON b.patient_id = p.patient_id
@@ -33,7 +33,7 @@ router.get('/mine', authenticate, authorize('PATIENT'), async (req, res) => {
               TO_CHAR(due_date,'YYYY-MM-DD') AS due_date, TO_CHAR(created_at,'YYYY-MM-DD') AS created_at
        FROM bills WHERE patient_id = $1
        ORDER BY created_at DESC, bill_id DESC`,
-      [req.user.patientId]
+      [Number(req.user.patientId)]
     );
     res.json(result.rows);
   } catch (err) {
@@ -47,6 +47,9 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
   const { patient_id, appointment_id, booking_id, description, total_amount, due_date } = req.body;
   if (!patient_id || !description?.trim() || total_amount === undefined || Number(total_amount) <= 0)
     return res.status(400).json({ error: 'Patient, description and a valid total amount are required' });
+
+  const cleanDueDate = (due_date && typeof due_date === 'string' && due_date.trim()) ? due_date.trim() : null;
+
   let conn;
   try {
     conn = await getConnection();
@@ -54,12 +57,12 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
       `INSERT INTO bills (patient_id, appointment_id, booking_id, description, total_amount, payment_status, due_date)
        VALUES ($1, $2, $3, $4, $5, 'Pending', $6::date)`,
       [
-        patient_id,
-        appointment_id || null,
-        booking_id || null,
+        Number(patient_id),
+        appointment_id ? Number(appointment_id) : null,
+        booking_id ? Number(booking_id) : null,
         description.trim(),
         Number(total_amount),
-        due_date || null
+        cleanDueDate
       ]
     );
     res.status(201).json({ message: 'Bill sent to patient' });
@@ -79,7 +82,7 @@ router.put('/:id/status', authenticate, authorize('ADMIN'), async (req, res) => 
     conn = await getConnection();
     const result = await conn.execute(
       `UPDATE bills SET payment_status = $1 WHERE bill_id = $2`,
-      [req.body.payment_status, req.params.id]
+      [req.body.payment_status, Number(req.params.id)]
     );
     if (result.rowCount === 0)
       return res.status(404).json({ error: 'Bill not found' });
@@ -94,7 +97,8 @@ router.put('/:id/status', authenticate, authorize('ADMIN'), async (req, res) => 
 // PUT pay a bill (Patient portal payment gateway mockup)
 router.put('/:id/pay', authenticate, authorize('PATIENT'), async (req, res) => {
   const { payment_method, transaction_ref } = req.body;
-  const patient_id = req.user.patientId;
+  const patient_id = Number(req.user.patientId);
+  const bill_id = Number(req.params.id);
   let conn;
 
   try {
@@ -105,7 +109,7 @@ router.put('/:id/pay', authenticate, authorize('PATIENT'), async (req, res) => {
     const billCheck = await conn.execute(
       `SELECT total_amount, payment_status FROM bills
        WHERE bill_id = $1 AND patient_id = $2`,
-      [req.params.id, patient_id]
+      [bill_id, patient_id]
     );
 
     if (billCheck.rows.length === 0) {
@@ -125,7 +129,7 @@ router.put('/:id/pay', authenticate, authorize('PATIENT'), async (req, res) => {
       `INSERT INTO payments (bill_id, amount, payment_method, transaction_ref)
        VALUES ($1, $2, $3, $4)`,
       [
-        req.params.id,
+        bill_id,
         Number(TOTAL_AMOUNT),
         payment_method || 'Online Payment',
         transaction_ref || `TXN-${Date.now()}`
@@ -135,7 +139,7 @@ router.put('/:id/pay', authenticate, authorize('PATIENT'), async (req, res) => {
     // 3. Update bill status to 'Paid'
     await conn.execute(
       `UPDATE bills SET payment_status = 'Paid' WHERE bill_id = $1`,
-      [req.params.id]
+      [bill_id]
     );
 
     await conn.execute('COMMIT');

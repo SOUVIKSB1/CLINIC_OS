@@ -34,7 +34,7 @@ router.get('/me', authenticate, authorize('PATIENT'), async (req, res) => {
               TO_CHAR(date_of_birth,'YYYY-MM-DD') AS date_of_birth,
               gender, email, phone, address, blood_group
        FROM patients WHERE patient_id = $1`,
-      [req.user.patientId]
+      [Number(req.user.patientId)]
     );
     if (!result.rows[0])
       return res.status(404).json({ error: 'Patient profile not found' });
@@ -56,7 +56,7 @@ router.get('/me/vitals', authenticate, authorize('PATIENT'), async (req, res) =>
        FROM patient_vitals
        WHERE patient_id = $1
        ORDER BY check_date ASC`,
-      [req.user.patientId]
+      [Number(req.user.patientId)]
     );
     res.json(result.rows);
   } catch (err) {
@@ -72,6 +72,7 @@ router.post('/me/vitals', authenticate, authorize('PATIENT'), async (req, res) =
   if (!blood_sugar || !weight || !heart_rate) {
     return res.status(400).json({ error: 'blood_sugar, weight, and heart_rate are required' });
   }
+  const cleanDate = (check_date && typeof check_date === 'string' && check_date.trim()) ? check_date.trim() : null;
   let conn;
   try {
     conn = await getConnection();
@@ -79,8 +80,8 @@ router.post('/me/vitals', authenticate, authorize('PATIENT'), async (req, res) =
       `INSERT INTO patient_vitals (patient_id, check_date, blood_pressure, blood_sugar, weight, heart_rate)
        VALUES ($1, COALESCE($2::date, CURRENT_DATE), $3, $4, $5, $6)`,
       [
-        req.user.patientId,
-        check_date || null,
+        Number(req.user.patientId),
+        cleanDate,
         blood_pressure || null,
         Number(blood_sugar),
         Number(weight),
@@ -102,7 +103,7 @@ router.delete('/me/vitals/:vitalId', authenticate, authorize('PATIENT'), async (
     conn = await getConnection();
     const result = await conn.execute(
       `DELETE FROM patient_vitals WHERE vital_id = $1 AND patient_id = $2`,
-      [req.params.vitalId, req.user.patientId]
+      [Number(req.params.vitalId), Number(req.user.patientId)]
     );
     if (result.rowCount === 0)
       return res.status(404).json({ error: 'Vitals entry not found' });
@@ -124,7 +125,7 @@ router.get('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
               TO_CHAR(date_of_birth,'YYYY-MM-DD') AS date_of_birth,
               gender, email, phone, address, blood_group
        FROM patients WHERE patient_id = $1`,
-      [req.params.id]
+      [Number(req.params.id)]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: 'Patient not found' });
@@ -147,7 +148,7 @@ router.post('/', authenticate, authorize('ADMIN'), async (req, res) => {
     await conn.execute(
       `INSERT INTO patients (first_name, last_name, date_of_birth, gender, email, phone, address, blood_group)
        VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8)`,
-      [first_name.trim(), last_name.trim(), date_of_birth, gender, email || null, phone.trim(), address || null, blood_group || null]
+      [first_name.trim(), last_name.trim(), String(date_of_birth).trim(), gender, email || null, phone.trim(), address || null, blood_group || null]
     );
     res.status(201).json({ message: 'Patient registered' });
   } catch (err) {
@@ -172,17 +173,24 @@ async function updatePatient(req, res, patientId) {
            date_of_birth = $3::date, gender = $4,
            phone = $5, address = $6, email = $7, blood_group = $8
        WHERE patient_id = $9`,
-      [first_name.trim(), last_name.trim(), date_of_birth, gender, phone.trim(), address, email, blood_group, patientId]
+      [first_name.trim(), last_name.trim(), String(date_of_birth).trim(), gender, phone.trim(), address || null, email || null, blood_group || null, Number(patientId)]
     );
     if (result.rowCount === 0) {
       await conn.rollback();
       return res.status(404).json({ error: 'Patient not found' });
     }
 
-    await conn.execute(
-      `UPDATE users SET full_name = $1, email = $2 WHERE patient_id = $3`,
-      [`${first_name.trim()} ${last_name.trim()}`, email, patientId]
-    );
+    if (email && email.trim()) {
+      await conn.execute(
+        `UPDATE users SET full_name = $1, email = $2 WHERE patient_id = $3`,
+        [`${first_name.trim()} ${last_name.trim()}`, email.trim().toLowerCase(), Number(patientId)]
+      );
+    } else {
+      await conn.execute(
+        `UPDATE users SET full_name = $1 WHERE patient_id = $2`,
+        [`${first_name.trim()} ${last_name.trim()}`, Number(patientId)]
+      );
+    }
 
     await conn.execute('COMMIT');
     res.json({ message: 'Patient updated' });
@@ -200,13 +208,12 @@ router.put('/:id', authenticate, authorize('ADMIN'), (req, res) => updatePatient
 
 // DELETE patient (and linked records)
 router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
-  const patientId = req.params.id;
+  const patientId = Number(req.params.id);
   let conn;
   try {
     conn = await getConnection();
     await conn.execute('BEGIN');
 
-    // Due to ON DELETE CASCADE on foreign keys, deleting patient cascades to appointments, tests, users, vitals, etc.
     const result = await conn.execute(
       `DELETE FROM patients WHERE patient_id = $1`,
       [patientId]
@@ -232,13 +239,14 @@ router.get('/:id/activity', authenticate, authorize('ADMIN'), async (req, res) =
   let conn;
   try {
     conn = await getConnection();
+    const pid = Number(req.params.id);
 
     // 1. Fetch Patient Info
     const patientResult = await conn.execute(
       `SELECT patient_id, first_name, last_name, TO_CHAR(date_of_birth,'YYYY-MM-DD') AS date_of_birth,
               gender, email, phone, address, blood_group
        FROM patients WHERE patient_id = $1`,
-      [req.params.id]
+      [pid]
     );
 
     if (patientResult.rows.length === 0) {
@@ -249,7 +257,7 @@ router.get('/:id/activity', authenticate, authorize('ADMIN'), async (req, res) =
 
     // 2. Fetch Appointments History
     const appointmentsResult = await conn.execute(
-      `SELECT a.appt_id, 'Dr. ' || d.first_name || ' ' || d.last_name AS doctor_name,
+      `SELECT a.appt_id, CONCAT('Dr. ', d.first_name, ' ', d.last_name) AS doctor_name,
               d.specialization, dp.dept_name,
               TO_CHAR(a.appt_date,'YYYY-MM-DD') AS appt_date,
               a.appt_time, a.status, a.reason, a.notes,
@@ -259,7 +267,7 @@ router.get('/:id/activity', authenticate, authorize('ADMIN'), async (req, res) =
        JOIN departments dp ON a.dept_id = dp.dept_id
        WHERE a.patient_id = $1
        ORDER BY a.appt_date DESC`,
-      [req.params.id]
+      [pid]
     );
 
     // 3. Fetch Test Requests History
@@ -272,7 +280,7 @@ router.get('/:id/activity', authenticate, authorize('ADMIN'), async (req, res) =
        JOIN lab_tests t ON pt.test_id = t.test_id
        WHERE pt.patient_id = $1
        ORDER BY pt.booking_date DESC`,
-      [req.params.id]
+      [pid]
     );
 
     // 4. Fetch Bills History
@@ -283,7 +291,7 @@ router.get('/:id/activity', authenticate, authorize('ADMIN'), async (req, res) =
        FROM bills
        WHERE patient_id = $1
        ORDER BY created_at DESC`,
-      [req.params.id]
+      [pid]
     );
 
     // 5. Fetch Payments History
@@ -295,7 +303,7 @@ router.get('/:id/activity', authenticate, authorize('ADMIN'), async (req, res) =
        JOIN bills b ON py.bill_id = b.bill_id
        WHERE b.patient_id = $1
        ORDER BY py.payment_date DESC`,
-      [req.params.id]
+      [pid]
     );
 
     res.json({
@@ -322,7 +330,7 @@ router.get('/:id/vitals', authenticate, authorize('ADMIN', 'DOCTOR'), async (req
        FROM patient_vitals
        WHERE patient_id = $1
        ORDER BY check_date ASC`,
-      [req.params.id]
+      [Number(req.params.id)]
     );
     res.json(result.rows);
   } catch (err) {
@@ -345,7 +353,7 @@ router.post('/:id/vitals', authenticate, authorize('ADMIN', 'DOCTOR'), async (re
       `INSERT INTO patient_vitals (patient_id, blood_pressure, blood_sugar, weight, heart_rate)
        VALUES ($1, $2, $3, $4, $5)`,
       [
-        req.params.id,
+        Number(req.params.id),
         blood_pressure || null,
         Number(blood_sugar),
         Number(weight),

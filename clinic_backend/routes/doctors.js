@@ -34,7 +34,7 @@ router.get('/department/:dept_id', async (req, res) => {
     const result = await conn.execute(
       `SELECT doctor_id, first_name, last_name, specialization, available_days, fees
        FROM doctors WHERE dept_id = $1 ORDER BY last_name`,
-      [req.params.dept_id]
+      [Number(req.params.dept_id)]
     );
     res.json(result.rows);
   } catch (err) {
@@ -53,7 +53,7 @@ router.get('/:id', async (req, res) => {
       `SELECT d.*, dp.dept_name FROM doctors d
        JOIN departments dp ON d.dept_id = dp.dept_id
        WHERE d.doctor_id = $1`,
-      [req.params.id]
+      [Number(req.params.id)]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: 'Doctor not found' });
@@ -102,7 +102,7 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res) => {
     conn = await getConnection();
     const result = await conn.execute(
       `DELETE FROM doctors WHERE doctor_id = $1`,
-      [req.params.id]
+      [Number(req.params.id)]
     );
     if (result.rowCount === 0)
       return res.status(404).json({ error: 'Doctor not found' });
@@ -182,13 +182,13 @@ router.get('/me/appointments', authenticate, authorize('DOCTOR'), async (req, re
     const result = await conn.execute(
       `SELECT a.appt_id, a.patient_id, a.dept_id, a.appt_time, a.status, a.reason, a.notes,
               TO_CHAR(a.appt_date, 'YYYY-MM-DD') AS appt_date,
-              p.first_name || ' ' || p.last_name AS patient_name,
+              CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
               p.gender, TO_CHAR(p.date_of_birth, 'YYYY-MM-DD') AS dob, p.phone
        FROM appointments a
        JOIN patients p ON a.patient_id = p.patient_id
        WHERE a.doctor_id = $1
        ORDER BY a.appt_date DESC, a.appt_time DESC`,
-      [req.user.doctorId]
+      [Number(req.user.doctorId)]
     );
     res.json(result.rows);
   } catch (err) {
@@ -213,7 +213,7 @@ router.get('/me/patients', authenticate, authorize('DOCTOR'), async (req, res) =
        JOIN appointments a ON p.patient_id = a.patient_id
        WHERE a.doctor_id = $1
        ORDER BY p.last_name, p.first_name`,
-      [req.user.doctorId]
+      [Number(req.user.doctorId)]
     );
     res.json(result.rows);
   } catch (err) {
@@ -232,7 +232,7 @@ router.get('/me/shared-reports', authenticate, authorize('DOCTOR'), async (req, 
       `SELECT rs.share_id, rs.booking_id, TO_CHAR(rs.shared_at, 'YYYY-MM-DD') AS shared_at,
               pt.results, pt.notes AS test_notes, TO_CHAR(pt.booking_date, 'YYYY-MM-DD') AS booking_date,
               lt.test_name,
-              p.first_name || ' ' || p.last_name AS patient_name
+              CONCAT(p.first_name, ' ', p.last_name) AS patient_name
        FROM report_shares rs
        JOIN patient_tests pt ON rs.booking_id = pt.booking_id
        JOIN lab_tests lt ON pt.test_id = lt.test_id

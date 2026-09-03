@@ -76,7 +76,7 @@ router.delete('/catalog/:id', authenticate, authorize('ADMIN'), async (req, res)
       return res.status(404).json({ error: 'Lab test not found' });
     res.json({ message: 'Lab test deleted successfully' });
   } catch (err) {
-    if (err.code === '23503' || err.message?.includes('foreign key constraint')) {
+    if (err.code === '23503' || err.message?.includes('foreign key') || err.message?.includes('violates foreign key')) {
       return res.status(400).json({ error: 'Cannot delete this test because patients have already booked appointments for it.' });
     }
     res.status(500).json({ error: err.message });
@@ -91,7 +91,7 @@ router.get('/requests', authenticate, authorize('ADMIN'), async (req, res) => {
     conn = await getConnection();
     const result = await conn.execute(
       `SELECT b.booking_id, b.patient_id,
-              p.first_name || ' ' || p.last_name AS patient_name,
+              CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
               t.test_id, t.test_name, t.price,
               TO_CHAR(b.booking_date,'YYYY-MM-DD') AS booking_date,
               b.status, b.notes, b.results
@@ -116,13 +116,13 @@ router.get('/mine', authenticate, authorize('PATIENT'), async (req, res) => {
       `SELECT b.booking_id, t.test_id, t.test_name, t.description, t.price, t.preparation,
               TO_CHAR(b.booking_date,'YYYY-MM-DD') AS booking_date,
               b.status, b.notes, b.results,
-              (SELECT STRING_AGG(recipient_name || ' (' || recipient_email || ')', ', ' ORDER BY shared_at)
+              (SELECT STRING_AGG(CONCAT(recipient_name, ' (', recipient_email, ')'), ', ' ORDER BY shared_at)
                FROM report_shares WHERE booking_id = b.booking_id) AS shared_with
        FROM patient_tests b
        JOIN lab_tests t ON b.test_id = t.test_id
        WHERE b.patient_id = $1
        ORDER BY b.booking_date DESC, b.booking_id DESC`,
-      [req.user.patientId]
+      [Number(req.user.patientId)]
     );
     res.json(result.rows);
   } catch (err) {
@@ -136,13 +136,14 @@ router.post('/requests', authenticate, authorize('PATIENT'), async (req, res) =>
   const { test_id, booking_date, notes } = req.body;
   if (!test_id || !booking_date)
     return res.status(400).json({ error: 'Test and preferred date are required' });
+  const cleanDate = (typeof booking_date === 'string') ? booking_date.trim() : booking_date;
   let conn;
   try {
     conn = await getConnection();
     await conn.execute(
       `INSERT INTO patient_tests (patient_id, test_id, booking_date, status, notes)
        VALUES ($1, $2, $3::date, 'Pending', $4)`,
-      [req.user.patientId, test_id, booking_date, notes || null]
+      [Number(req.user.patientId), Number(test_id), cleanDate, notes || null]
     );
     res.status(201).json({ message: 'Test request sent for approval' });
   } catch (err) {
@@ -161,7 +162,7 @@ router.put('/requests/:id/status', authenticate, authorize('ADMIN'), async (req,
     conn = await getConnection();
     const result = await conn.execute(
       `UPDATE patient_tests SET status = $1 WHERE booking_id = $2`,
-      [req.body.status, req.params.id]
+      [req.body.status, Number(req.params.id)]
     );
     if (result.rowCount === 0)
       return res.status(404).json({ error: 'Test request not found' });
@@ -181,7 +182,7 @@ router.put('/requests/:id/cancel', authenticate, authorize('PATIENT'), async (re
       `UPDATE patient_tests SET status = 'Cancelled'
        WHERE booking_id = $1 AND patient_id = $2
          AND status IN ('Pending', 'Approved')`,
-      [req.params.id, req.user.patientId]
+      [Number(req.params.id), Number(req.user.patientId)]
     );
     if (result.rowCount === 0)
       return res.status(404).json({ error: 'Open test request not found' });
@@ -212,7 +213,7 @@ router.put('/requests/:id/complete', authenticate, authorize('ADMIN'), async (re
        FROM patient_tests pt
        JOIN lab_tests t ON pt.test_id = t.test_id
        WHERE pt.booking_id = $1`,
-      [req.params.id]
+      [Number(req.params.id)]
     );
 
     if (testDetails.rows.length === 0) {
@@ -227,20 +228,20 @@ router.put('/requests/:id/complete', authenticate, authorize('ADMIN'), async (re
       `UPDATE patient_tests
        SET status = 'Completed', results = $1
        WHERE booking_id = $2`,
-      [results.trim(), req.params.id]
+      [results.trim(), Number(req.params.id)]
     );
 
     // 3. Auto-issue a bill if not already completed/paid/billed
     const existingBill = await conn.execute(
       `SELECT COUNT(*) AS total FROM bills WHERE booking_id = $1`,
-      [req.params.id]
+      [Number(req.params.id)]
     );
 
     if (parseInt(existingBill.rows[0].TOTAL, 10) === 0 && PRICE && Number(PRICE) > 0) {
       await conn.execute(
         `INSERT INTO bills (patient_id, booking_id, description, total_amount, payment_status, due_date)
          VALUES ($1, $2, $3, $4, 'Pending', CURRENT_DATE + INTERVAL '7 days')`,
-        [PATIENT_ID, req.params.id, `Diagnostic Test - ${TEST_NAME}`, Number(PRICE)]
+        [Number(PATIENT_ID), Number(req.params.id), `Diagnostic Test - ${TEST_NAME}`, Number(PRICE)]
       );
     }
 
@@ -311,7 +312,7 @@ router.put('/requests/:id/complete', authenticate, authorize('ADMIN'), async (re
          WHERE patient_id = $1
          ORDER BY check_date DESC
          LIMIT 1`,
-        [PATIENT_ID]
+        [Number(PATIENT_ID)]
       );
       const prev = lastVitals.rows.length > 0 ? lastVitals.rows[0] : {};
 
@@ -319,7 +320,7 @@ router.put('/requests/:id/complete', authenticate, authorize('ADMIN'), async (re
         `INSERT INTO patient_vitals (patient_id, check_date, blood_pressure, blood_sugar, weight, heart_rate)
          VALUES ($1, $2::date, $3, $4, $5, $6)`,
         [
-          PATIENT_ID,
+          Number(PATIENT_ID),
           BOOKING_DATE,
           blood_pressure || prev.BLOOD_PRESSURE || null,
           blood_sugar || prev.BLOOD_SUGAR || null,
@@ -352,7 +353,7 @@ router.post('/requests/:id/share', authenticate, authorize('PATIENT'), async (re
     
     const testResult = await conn.execute(
       `SELECT patient_id, status FROM patient_tests WHERE booking_id = $1`,
-      [req.params.id]
+      [Number(req.params.id)]
     );
     
     if (testResult.rows.length === 0) {
@@ -360,7 +361,7 @@ router.post('/requests/:id/share', authenticate, authorize('PATIENT'), async (re
     }
     
     const test = testResult.rows[0];
-    if (test.PATIENT_ID !== req.user.patientId) {
+    if (Number(test.PATIENT_ID) !== Number(req.user.patientId)) {
       return res.status(403).json({ error: 'Unauthorized to share this report' });
     }
     if (test.STATUS !== 'Completed') {
@@ -372,7 +373,7 @@ router.post('/requests/:id/share', authenticate, authorize('PATIENT'), async (re
        VALUES ($1, $2, $3, $4)`,
       [
         Number(req.params.id),
-        req.user.patientId,
+        Number(req.user.patientId),
         recipient_name?.trim() || null,
         recipient_email.trim()
       ]
